@@ -45,6 +45,21 @@ body {
   box-shadow: 0 18px 40px rgba(20, 24, 35, 0.08);
 }
 
+.view-toggle {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.view-toggle button {
+  background: #1f2430;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 .output-row {
   display: grid;
   grid-template-columns: repeat(10, minmax(0, 1fr));

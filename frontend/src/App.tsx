@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import CanvasGrid from "./components/CanvasGrid";
 import LayerView from "./components/LayerView";
 import ConnectionView from "./components/ConnectionView";
+import Network3D from "./components/Network3D";
+import { NeuralState } from "./types/NeuralState";
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000";
 
@@ -15,6 +17,8 @@ const App: React.FC = () => {
     Array.from({ length: 10 }, () => 0)
   );
   const [prediction, setPrediction] = useState<number | null>(null);
+  const [view, setView] = useState<"2d" | "3d">("2d");
+  const [state3D, setState3D] = useState<NeuralState | null>(null);
   const [weightsHidden1Hidden2, setWeightsHidden1Hidden2] = useState<number[][] | null>(
     null
   );
@@ -87,6 +91,32 @@ const App: React.FC = () => {
     return () => clearTimeout(timeout);
   }, [pixels]);
 
+  useEffect(() => {
+    if (view !== "3d") {
+      return;
+    }
+
+    const timeout = setTimeout(async () => {
+      try {
+        const response = await fetch(`${API_BASE}/state`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pixels }),
+        });
+        if (!response.ok) {
+          throw new Error(await response.text());
+        }
+        const data = await response.json();
+        setState3D(data);
+        setError(null);
+      } catch (err) {
+        setError("3D state fetch failed. Ensure the backend API is reachable.");
+      }
+    }, 40);
+
+    return () => clearTimeout(timeout);
+  }, [pixels, view]);
+
   const maxIndex = probabilities.reduce(
     (max, value, index) => (value > probabilities[max] ? index : max),
     0
@@ -100,6 +130,11 @@ const App: React.FC = () => {
       </header>
 
       <section className="visualizer">
+        <div className="view-toggle">
+          <button type="button" onClick={() => setView((current) => (current === "2d" ? "3d" : "2d"))}>
+            Switch to {view === "2d" ? "3D" : "2D"}
+          </button>
+        </div>
         <div className="output-row">
           {probabilities.map((value, index) => (
             <div key={`digit-${index}`} className="digit-cell">
@@ -111,23 +146,39 @@ const App: React.FC = () => {
           ))}
         </div>
 
-        <div className="network-stage">
-          <ConnectionView
-            hidden1={normalizedHidden1}
-            hidden2={normalizedHidden2}
-            output={normalizedOutput}
-            weightsHidden1Hidden2={weightsHidden1Hidden2}
-            weightsHidden2Output={weightsHidden2Output}
-            width={720}
-            height={220}
-          />
-          <div className="layer-row">
-            <LayerView title="Hidden 1" activations={normalizedHidden1} columns={32} showTitle={false} />
+        {view === "2d" ? (
+          <div className="network-stage">
+            <ConnectionView
+              hidden1={normalizedHidden1}
+              hidden2={normalizedHidden2}
+              output={normalizedOutput}
+              weightsHidden1Hidden2={weightsHidden1Hidden2}
+              weightsHidden2Output={weightsHidden2Output}
+              width={720}
+              height={220}
+            />
+            <div className="layer-row">
+              <LayerView
+                title="Hidden 1"
+                activations={normalizedHidden1}
+                columns={32}
+                showTitle={false}
+              />
+            </div>
+            <div className="layer-row">
+              <LayerView
+                title="Hidden 2"
+                activations={normalizedHidden2}
+                columns={16}
+                showTitle={false}
+              />
+            </div>
           </div>
-          <div className="layer-row">
-            <LayerView title="Hidden 2" activations={normalizedHidden2} columns={16} showTitle={false} />
+        ) : (
+          <div className="network-stage">
+            {state3D ? <Network3D state={state3D} /> : <p>Loading 3D scene…</p>}
           </div>
-        </div>
+        )}
 
         <div className="input-panel">
           <CanvasGrid pixels={pixels} onChange={setPixels} />

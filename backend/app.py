@@ -93,6 +93,22 @@ def build_explanation(
     }
 
 
+def build_edges(
+    weights: np.ndarray, source_activations: np.ndarray, max_edges: int
+) -> List[dict]:
+    contributions = weights * source_activations[:, None]
+    flat = [
+        (i, j, contributions[i, j])
+        for i in range(contributions.shape[0])
+        for j in range(contributions.shape[1])
+    ]
+    flat.sort(key=lambda item: abs(item[2]), reverse=True)
+    top = flat[:max_edges]
+    return [
+        {"from": int(i), "to": int(j), "strength": float(strength)} for i, j, strength in top
+    ]
+
+
 try:
     MODEL = load_model()
     ACTIVATION_MODEL = build_activation_model(MODEL)
@@ -135,6 +151,37 @@ async def predict(data: PixelInput) -> dict:
             "hidden2": activations[1][0].tolist(),
         },
         "explanation": explanation,
+    }
+
+
+@app.post("/state")
+async def state(data: PixelInput) -> dict:
+    if MODEL is None or ACTIVATION_MODEL is None:
+        raise HTTPException(status_code=500, detail=MODEL_ERROR)
+
+    x = normalize_pixels(data.pixels)
+    activations = ACTIVATION_MODEL.predict(x)
+    probabilities = activations[-1][0]
+    prediction = int(np.argmax(probabilities))
+    confidence = float(probabilities[prediction])
+    _, weights_hidden_hidden, weights_hidden_output = extract_weights(MODEL)
+
+    edges_hidden1_hidden2 = build_edges(weights_hidden_hidden, activations[0][0], 240)
+    edges_hidden2_output = build_edges(weights_hidden_output, activations[1][0], 160)
+
+    return {
+        "input": x[0].tolist(),
+        "layers": {
+            "hidden1": activations[0][0].tolist(),
+            "hidden2": activations[1][0].tolist(),
+            "output": probabilities.tolist(),
+        },
+        "prediction": prediction,
+        "confidence": confidence,
+        "edges": {
+            "hidden1_hidden2": edges_hidden1_hidden2,
+            "hidden2_output": edges_hidden2_output,
+        },
     }
 
 
