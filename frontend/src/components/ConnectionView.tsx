@@ -18,44 +18,74 @@ interface NodePosition {
 interface Connection {
   from: NodePosition;
   to: NodePosition;
-  weight: number;
-  intensity: number;
+  signed: number;
+  magnitude: number;
 }
 
-const buildPositions = (count: number, x: number, height: number) => {
+/* ---------- layout ---------- */
+
+const buildPositions = (
+  count: number,
+  x: number,
+  height: number
+): NodePosition[] => {
   const spacing = height / (count + 1);
-  return Array.from({ length: count }, (_, index) => ({
+  return Array.from({ length: count }, (_, i) => ({
     x,
-    y: spacing * (index + 1),
+    y: spacing * (i + 1),
   }));
 };
 
-const topConnections = (
+/* ---------- signal extraction ---------- */
+
+const extractConnections = (
   weights: number[][],
-  sourceActivations: number[],
-  sourcePositions: NodePosition[],
-  targetPositions: NodePosition[],
-  maxConnections: number
+  activations: number[],
+  fromPos: NodePosition[],
+  toPos: NodePosition[],
+  limit: number
 ): Connection[] => {
-  const flat: Connection[] = [];
-  for (let i = 0; i < weights.length; i += 1) {
-    for (let j = 0; j < weights[i].length; j += 1) {
-      const weight = weights[i][j];
-      const activation = sourceActivations[i] ?? 0;
-      const intensity = weight * activation;
-      if (Math.abs(intensity) < 0.05) continue;
-      flat.push({
-        from: sourcePositions[i],
-        to: targetPositions[j],
-        weight,
-        intensity,
+  const acc: Connection[] = [];
+
+  for (let i = 0; i < weights.length; i++) {
+    const a = activations[i] ?? 0;
+    if (a < 1e-4) continue;
+
+    for (let j = 0; j < weights[i].length; j++) {
+      const w = weights[i][j];
+      const signed = w * a;
+      const mag = Math.abs(signed);
+
+      if (mag < 0.02) continue;
+
+      acc.push({
+        from: fromPos[i],
+        to: toPos[j],
+        signed,
+        magnitude: mag,
       });
     }
   }
-  return flat
-    .sort((a, b) => Math.abs(b.intensity) - Math.abs(a.intensity))
-    .slice(0, maxConnections);
+
+  return acc
+    .sort((a, b) => b.magnitude - a.magnitude)
+    .slice(0, limit);
 };
+
+/* ---------- path helper ---------- */
+
+const curvePath = (from: NodePosition, to: NodePosition) => {
+  const dx = to.x - from.x;
+  const cx1 = from.x + dx * 0.4;
+  const cx2 = from.x + dx * 0.6;
+
+  return `M ${from.x} ${from.y}
+          C ${cx1} ${from.y},
+            ${cx2} ${to.y},
+            ${to.x} ${to.y}`;
+};
+
+/* ---------- component ---------- */
 
 const ConnectionView: React.FC<ConnectionViewProps> = ({
   hidden1,
@@ -63,67 +93,77 @@ const ConnectionView: React.FC<ConnectionViewProps> = ({
   output,
   weightsHidden1Hidden2,
   weightsHidden2Output,
-  width = 700,
-  height = 360,
+  width = 720,
+  height = 220,
 }) => {
-  const { hidden1Positions, hidden2Positions, outputPositions, connections } = useMemo(() => {
-    const hidden1Positions = buildPositions(hidden1.length, 100, height);
-    const hidden2Positions = buildPositions(hidden2.length, width / 2, height);
-    const outputPositions = buildPositions(output.length, width - 80, height);
+  const { h1, h2, out, connections } = useMemo(() => {
+    const h1 = buildPositions(hidden1.length, 90, height);
+    const h2 = buildPositions(hidden2.length, width / 2, height);
+    const out = buildPositions(output.length, width - 80, height);
 
     const connections: Connection[] = [];
+
     if (weightsHidden1Hidden2) {
       connections.push(
-        ...topConnections(
-          weightsHidden1Hidden2,
-          hidden1,
-          hidden1Positions,
-          hidden2Positions,
-          120
-        )
-      );
-    }
-    if (weightsHidden2Output) {
-      connections.push(
-        ...topConnections(
-          weightsHidden2Output,
-          hidden2,
-          hidden2Positions,
-          outputPositions,
-          80
-        )
+        ...extractConnections(weightsHidden1Hidden2, hidden1, h1, h2, 160)
       );
     }
 
-    return { hidden1Positions, hidden2Positions, outputPositions, connections };
+    if (weightsHidden2Output) {
+      connections.push(
+        ...extractConnections(weightsHidden2Output, hidden2, h2, out, 100)
+      );
+    }
+
+    return { h1, h2, out, connections };
   }, [hidden1, hidden2, output, weightsHidden1Hidden2, weightsHidden2Output, width, height]);
 
   return (
     <svg className="connection-svg" viewBox={`0 0 ${width} ${height}`}>
-      {connections.map((connection, index) => {
+      {/* connections */}
+      {connections.map((c, i) => {
+        const energy = Math.pow(c.magnitude, 0.55); // gamma correction
+        const strokeWidth = 0.6 + energy * 3.6;
+        const opacity = Math.min(0.9, 0.25 + energy);
+
         const color =
-          connection.intensity >= 0 ? "rgba(122, 230, 148, 0.65)" : "rgba(161, 98, 219, 0.65)";
-        const thickness = Math.min(3.5, Math.max(0.6, Math.abs(connection.intensity) * 3.5));
+          c.signed >= 0
+            ? `rgba(122, 230, 148, ${opacity})`
+            : `rgba(161, 98, 219, ${opacity})`;
+
+        const path = curvePath(c.from, c.to);
+
         return (
-          <line
-            key={`conn-${index}`}
-            x1={connection.from.x}
-            y1={connection.from.y}
-            x2={connection.to.x}
-            y2={connection.to.y}
-            stroke={color}
-            strokeWidth={thickness}
-          />
+          <g key={`conn-${i}`}>
+            {/* soft glow */}
+            <path
+              d={path}
+              stroke={color}
+              strokeWidth={strokeWidth + 1.2}
+              fill="none"
+              opacity={0.15}
+            />
+            {/* core signal */}
+            <path
+              d={path}
+              stroke={color}
+              strokeWidth={strokeWidth}
+              fill="none"
+              strokeLinecap="round"
+            />
+          </g>
         );
       })}
-      {hidden1Positions.map((pos, index) => (
-        <circle key={`h1-${index}`} cx={pos.x} cy={pos.y} r={4} fill="#1f2430" />
+
+      {/* nodes */}
+      {h1.map((p, i) => (
+        <circle key={`h1-${i}`} cx={p.x} cy={p.y} r={4} fill="#1f2430" />
       ))}
-      {hidden2Positions.map((pos, index) => (
-        <circle key={`h2-${index}`} cx={pos.x} cy={pos.y} r={4} fill="#1f2430" />
+      {h2.map((p, i) => (
+        <circle key={`h2-${i}`} cx={p.x} cy={p.y} r={4} fill="#1f2430" />
       ))}
-      {outputPositions.map((pos, index) => (
-        <circle key={`out-${index}`} cx={pos.x} cy={pos.y} r={5} fill="#1f2430" />
+      {out.map((p, i) => (
+        <circle key={`out-${i}`} cx={p.x} cy={p.y} r={5} fill="#1f2430" />
       ))}
     </svg>
   );

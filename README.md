@@ -18,7 +18,6 @@ Interactive neural network visualization for MNIST digits. Draw on a 28×28 grid
    - Output probabilities as bars.
    - SVG connection lines with positive/negative influence.
    - Decision explanation panel using real activations and weights.
-   - Optional 3D visualization using react-three-fiber.
 5. **Performance**
    - Debounced requests (~30ms).
    - Normalized activations for display.

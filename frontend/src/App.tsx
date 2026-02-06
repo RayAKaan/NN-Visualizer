@@ -1,126 +1,178 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import CanvasGrid from "./components/CanvasGrid";
 import LayerView from "./components/LayerView";
 import ConnectionView from "./components/ConnectionView";
-import Network3D from "./components/Network3D";
-import { NeuralState } from "./types/NeuralState";
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000";
 
-const createBlankPixels = () => Array.from({ length: 28 * 28 }, () => 0);
+const BLANK_PIXELS = Array.from({ length: 28 * 28 }, () => 0);
+
+/* ---------------- tuning constants ---------------- */
+
+const FRAME_INTERVAL = 33;          // ~30 FPS
+const HIDDEN_ALPHA = 0.35;          // fast response
+const OUTPUT_ALPHA = 0.18;          // slower, more stable
+const CONFIDENCE_THRESHOLD = 0.75;  // confidence gate
+const STABLE_FRAMES = 6;            // hysteresis frames
+
+/* ---------------- helpers ---------------- */
+
+const smooth = (prev: number[], next: number[], alpha: number) =>
+  next.map((v, i) => prev[i] + alpha * (v - prev[i]));
+
+const normalize = (layer: number[]) => {
+  const max = Math.max(...layer, 1e-6);
+  return layer.map((v) => v / max);
+};
+
+/* ---------------- types ---------------- */
+
+type Explanation = {
+  prediction: number;
+  confidence: number;
+  margin: number;
+  top_hidden2_neurons: Array<{
+    neuron: number;
+    activation: number;
+    weight: number;
+    contribution: number;
+  }>;
+  quadrant_intensity: Record<string, number>;
+  competing_digits: Array<{
+    digit: number;
+    probability: number;
+    positive_support: number;
+  }>;
+  uncertainty_notes: string[];
+  hidden1_summary: {
+    mean_activation: number;
+    max_activation: number;
+  };
+};
+
+/* ---------------- app ---------------- */
 
 const App: React.FC = () => {
-  const [pixels, setPixels] = useState<number[]>(createBlankPixels());
-  const [hidden1, setHidden1] = useState<number[]>(Array.from({ length: 128 }, () => 0));
-  const [hidden2, setHidden2] = useState<number[]>(Array.from({ length: 64 }, () => 0));
-  const [probabilities, setProbabilities] = useState<number[]>(
-    Array.from({ length: 10 }, () => 0)
-  );
-  const [prediction, setPrediction] = useState<number | null>(null);
-  const [view, setView] = useState<"2d" | "3d">("2d");
-  const [state3D, setState3D] = useState<NeuralState | null>(null);
-  const [weightsHidden1Hidden2, setWeightsHidden1Hidden2] = useState<number[][] | null>(
-    null
-  );
-  const [weightsHidden2Output, setWeightsHidden2Output] = useState<number[][] | null>(null);
-  const [explanation, setExplanation] = useState<{
-    prediction: number;
-    confidence: number;
-    margin: number;
-    top_hidden2_neurons: Array<{
-      neuron: number;
-      activation: number;
-      weight: number;
-      contribution: number;
-    }>;
-    quadrant_intensity: Record<string, number>;
-    competing_digits: Array<{ digit: number; probability: number; positive_support: number }>;
-    uncertainty_notes: string[];
-    hidden1_summary: { mean_activation: number; max_activation: number };
-  } | null>(null);
+  /* input */
+  const [pixels, setPixels] = useState<number[]>(BLANK_PIXELS);
+
+  /* raw activations */
+  const [hidden1, setHidden1] = useState<number[]>(Array(128).fill(0));
+  const [hidden2, setHidden2] = useState<number[]>(Array(64).fill(0));
+  const [probs, setProbs] = useState<number[]>(Array(10).fill(0));
+
+  /* semantic outputs */
+  const [stablePrediction, setStablePrediction] = useState<number | null>(null);
+  const [isConfident, setIsConfident] = useState(false);
+
+  const [explanation, setExplanation] = useState<Explanation | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const normalizedHidden1 = useMemo(() => hidden1.map((value) => Math.min(1, value)), [hidden1]);
-  const normalizedHidden2 = useMemo(() => hidden2.map((value) => Math.min(1, value)), [hidden2]);
-  const normalizedOutput = useMemo(
-    () => probabilities.map((value) => Math.min(1, value)),
-    [probabilities]
-  );
+  /* weights */
+  const [w12, setW12] = useState<number[][] | null>(null);
+  const [w2o, setW2o] = useState<number[][] | null>(null);
+
+  /* refs */
+  const rafRef = useRef<number | null>(null);
+  const pixelsRef = useRef<number[]>(pixels);
+  const lastTimeRef = useRef(0);
+
+  const lastPredictionRef = useRef<number | null>(null);
+  const stableCountRef = useRef(0);
 
   useEffect(() => {
-    const loadWeights = async () => {
-      try {
-        const response = await fetch(`${API_BASE}/weights`);
-        if (!response.ok) {
-          throw new Error(await response.text());
-        }
-        const data = await response.json();
-        setWeightsHidden1Hidden2(data.hidden1_hidden2);
-        setWeightsHidden2Output(data.hidden2_output);
-      } catch (err) {
-        setError("Model weights unavailable. Make sure the backend is running and trained.");
-      }
-    };
-
-    loadWeights();
-  }, []);
-
-  useEffect(() => {
-    const timeout = setTimeout(async () => {
-      try {
-        const response = await fetch(`${API_BASE}/predict`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ pixels }),
-        });
-        if (!response.ok) {
-          throw new Error(await response.text());
-        }
-        const data = await response.json();
-        setHidden1(data.layers.hidden1);
-        setHidden2(data.layers.hidden2);
-        setProbabilities(data.probabilities);
-        setPrediction(data.prediction);
-        setExplanation(data.explanation ?? null);
-        setError(null);
-      } catch (err) {
-        setError("Prediction failed. Ensure the backend API is reachable.");
-      }
-    }, 30);
-
-    return () => clearTimeout(timeout);
+    pixelsRef.current = pixels;
   }, [pixels]);
 
+  /* -------- load weights -------- */
+
   useEffect(() => {
-    if (view !== "3d") {
-      return;
-    }
-
-    const timeout = setTimeout(async () => {
+    const load = async () => {
       try {
-        const response = await fetch(`${API_BASE}/state`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ pixels }),
-        });
-        if (!response.ok) {
-          throw new Error(await response.text());
-        }
-        const data = await response.json();
-        setState3D(data);
-        setError(null);
-      } catch (err) {
-        setError("3D state fetch failed. Ensure the backend API is reachable.");
+        const res = await fetch(`${API_BASE}/weights`);
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        setW12(data.hidden1_hidden2);
+        setW2o(data.hidden2_output);
+      } catch {
+        setError("Model weights unavailable.");
       }
-    }, 40);
+    };
+    load();
+  }, []);
 
-    return () => clearTimeout(timeout);
-  }, [pixels, view]);
+  /* -------- realtime inference loop -------- */
 
-  const maxIndex = probabilities.reduce(
-    (max, value, index) => (value > probabilities[max] ? index : max),
+  useEffect(() => {
+    const loop = async (t: number) => {
+      if (t - lastTimeRef.current >= FRAME_INTERVAL) {
+        lastTimeRef.current = t;
+
+        try {
+          const res = await fetch(`${API_BASE}/predict`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ pixels: pixelsRef.current }),
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+
+            /* smooth activations */
+            setHidden1((p) => smooth(p, data.layers.hidden1, HIDDEN_ALPHA));
+            setHidden2((p) => smooth(p, data.layers.hidden2, HIDDEN_ALPHA));
+            setProbs((p) => smooth(p, data.probabilities, OUTPUT_ALPHA));
+
+            /* prediction orchestration */
+            const current = data.prediction;
+            const confidence = data.probabilities[current] ?? 0;
+
+            if (lastPredictionRef.current === current) {
+              stableCountRef.current += 1;
+            } else {
+              stableCountRef.current = 1;
+              lastPredictionRef.current = current;
+            }
+
+            if (
+              stableCountRef.current >= STABLE_FRAMES &&
+              confidence >= CONFIDENCE_THRESHOLD
+            ) {
+              setStablePrediction(current);
+              setIsConfident(true);
+            } else {
+              setIsConfident(false);
+            }
+
+            setExplanation(data.explanation ?? null);
+            setError(null);
+          }
+        } catch {
+          setError("Prediction failed.");
+        }
+      }
+
+      rafRef.current = requestAnimationFrame(loop);
+    };
+
+    rafRef.current = requestAnimationFrame(loop);
+    return () => {
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
+
+  /* -------- normalized visuals -------- */
+
+  const nHidden1 = useMemo(() => normalize(hidden1), [hidden1]);
+  const nHidden2 = useMemo(() => normalize(hidden2), [hidden2]);
+  const nOutput = useMemo(() => normalize(probs), [probs]);
+
+  const maxDigit = probs.reduce(
+    (m, v, i) => (v > probs[m] ? i : m),
     0
   );
+
+  /* ---------------- render ---------------- */
 
   return (
     <div className="app">
@@ -130,119 +182,98 @@ const App: React.FC = () => {
       </header>
 
       <section className="visualizer">
-        <div className="view-toggle">
-          <button type="button" onClick={() => setView((current) => (current === "2d" ? "3d" : "2d"))}>
-            Switch to {view === "2d" ? "3D" : "2D"}
-          </button>
-        </div>
+        {/* output */}
         <div className="output-row">
-          {probabilities.map((value, index) => (
-            <div key={`digit-${index}`} className="digit-cell">
-              <span className="digit-label">{index}</span>
-              <div className={`digit-box ${index === maxIndex ? "active" : ""}`}>
-                <div className="digit-fill" style={{ opacity: Math.min(1, value * 2 + 0.1) }} />
+          {probs.map((v, i) => (
+            <div key={i} className="digit-cell">
+              <span className="digit-label">{i}</span>
+              <div className={`digit-box ${i === maxDigit ? "active" : ""}`}>
+                <div
+                  className="digit-fill"
+                  style={{ opacity: Math.min(1, v * 2 + 0.1) }}
+                />
               </div>
             </div>
           ))}
         </div>
 
-        {view === "2d" ? (
-          <div className="network-stage">
-            <ConnectionView
-              hidden1={normalizedHidden1}
-              hidden2={normalizedHidden2}
-              output={normalizedOutput}
-              weightsHidden1Hidden2={weightsHidden1Hidden2}
-              weightsHidden2Output={weightsHidden2Output}
-              width={720}
-              height={220}
-            />
-            <div className="layer-row">
-              <LayerView
-                title="Hidden 1"
-                activations={normalizedHidden1}
-                columns={32}
-                showTitle={false}
-              />
-            </div>
-            <div className="layer-row">
-              <LayerView
-                title="Hidden 2"
-                activations={normalizedHidden2}
-                columns={16}
-                showTitle={false}
-              />
-            </div>
-          </div>
-        ) : (
-          <div className="network-stage">
-            {state3D ? <Network3D state={state3D} /> : <p>Loading 3D scene…</p>}
-          </div>
-        )}
+        {/* network */}
+        <div className="network-stage">
+          <ConnectionView
+            hidden1={nHidden1}
+            hidden2={nHidden2}
+            output={nOutput}
+            weightsHidden1Hidden2={w12}
+            weightsHidden2Output={w2o}
+            width={830}
+            height={255}
+          />
 
+          <div className="layer-row">
+            <LayerView
+              title="Hidden Layer 1"
+              activations={nHidden1}
+              columns={32}
+              showTitle={false}
+            />
+          </div>
+
+          <div className="layer-row">
+            <LayerView
+              title="Hidden Layer 2"
+              activations={nHidden2}
+              columns={16}
+              showTitle={false}
+            />
+          </div>
+        </div>
+
+        {/* input */}
         <div className="input-panel">
           <CanvasGrid pixels={pixels} onChange={setPixels} />
-          <button type="button" className="clear-button" onClick={() => setPixels(createBlankPixels())}>
+          <button
+            className="clear-button"
+            onClick={() => setPixels([...BLANK_PIXELS])}
+          >
             Clear
           </button>
-          {prediction !== null && <p className="prediction">Prediction: {prediction}</p>}
+
+          {stablePrediction !== null && isConfident && (
+            <p className="prediction">
+              Prediction: <strong>{stablePrediction}</strong>
+            </p>
+          )}
+
+          {!isConfident && <p className="prediction">Prediction: uncertain</p>}
+
           {error && <p className="error">{error}</p>}
         </div>
       </section>
 
       <section className="explanation-panel">
         <h2>Decision explanation</h2>
+
         {explanation ? (
           <div className="explanation">
             <p>
-              Primary digit: <strong>{explanation.prediction}</strong> (confidence{" "}
-              {(explanation.confidence * 100).toFixed(1)}%, margin{" "}
-              {(explanation.margin * 100).toFixed(1)}%).
+              Primary digit <strong>{explanation.prediction}</strong> with{" "}
+              {(explanation.confidence * 100).toFixed(1)}% confidence.
             </p>
-            <div>
-              <strong>Top contributing hidden neurons</strong>
-              <ul>
-                {explanation.top_hidden2_neurons.map((item) => (
-                  <li key={`neuron-${item.neuron}`}>
-                    h2[{item.neuron}] activation {item.activation.toFixed(3)} × weight{" "}
-                    {item.weight.toFixed(3)} = {item.contribution.toFixed(3)}
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div>
-              <strong>Supporting evidence</strong>
-              <p>
-                Quadrant intensity — UL {explanation.quadrant_intensity.upper_left.toFixed(3)},
-                UR {explanation.quadrant_intensity.upper_right.toFixed(3)}, LL{" "}
-                {explanation.quadrant_intensity.lower_left.toFixed(3)}, LR{" "}
-                {explanation.quadrant_intensity.lower_right.toFixed(3)}.
-              </p>
-              <p>
-                Hidden1 summary — mean {explanation.hidden1_summary.mean_activation.toFixed(3)},
-                max {explanation.hidden1_summary.max_activation.toFixed(3)}.
-              </p>
-            </div>
-            <div>
-              <strong>Competing digits</strong>
-              <ul>
-                {explanation.competing_digits.map((digit) => (
-                  <li key={`compete-${digit.digit}`}>
-                    {digit.digit}: {(digit.probability * 100).toFixed(1)}% (positive support{" "}
-                    {digit.positive_support.toFixed(3)})
-                  </li>
-                ))}
-              </ul>
-            </div>
+
+            <ul>
+              {explanation.top_hidden2_neurons.map((n) => (
+                <li key={n.neuron}>
+                  h2[{n.neuron}] → contribution {n.contribution.toFixed(3)}
+                </li>
+              ))}
+            </ul>
+
             {explanation.uncertainty_notes.length > 0 && (
-              <div>
-                <strong>Uncertainty notes</strong>
-                <ul>
-                  {explanation.uncertainty_notes.map((note, index) => (
-                    <li key={`note-${index}`}>{note}</li>
-                  ))}
-                </ul>
-              </div>
+              <ul>
+                {explanation.uncertainty_notes.map((n, i) => (
+                  <li key={i}>{n}</li>
+                ))}
+              </ul>
             )}
           </div>
         ) : (
