@@ -7,16 +7,23 @@ interface LayerViewProps {
   showTitle?: boolean;
 }
 
-/* ---------- helpers ---------- */
+/* =====================================================
+   Helpers (robust + perceptual)
+===================================================== */
 
 const normalizeLayer = (values: number[]) => {
+  if (!values || values.length === 0) return [];
   const max = Math.max(...values, 1e-6);
   return values.map((v) => v / max);
 };
 
-const gammaCorrect = (v: number, gamma = 0.6) => Math.pow(v, gamma);
+// Perceptual gamma → smoother mid-range contrast
+const gammaCorrect = (v: number, gamma = 0.65) =>
+  Math.pow(Math.min(Math.max(v, 0), 1), gamma);
 
-/* ---------- component ---------- */
+/* =====================================================
+   Component
+===================================================== */
 
 const LayerView: React.FC<LayerViewProps> = ({
   title,
@@ -24,33 +31,57 @@ const LayerView: React.FC<LayerViewProps> = ({
   columns,
   showTitle = true,
 }) => {
-  const normalized = useMemo(() => {
+  const values = useMemo(() => {
     const norm = normalizeLayer(activations);
-    return norm.map((v) => gammaCorrect(Math.min(1, Math.max(0, v))));
+    return norm.map((v) => gammaCorrect(v));
   }, [activations]);
 
-  const gridTemplate = `repeat(${columns}, 14px)`; // slightly more breathable
+  const gridTemplate = useMemo(
+    () => `repeat(${columns}, 14px)`,
+    [columns]
+  );
 
   return (
     <div className="layer">
-      {showTitle && <strong>{title}</strong>}
+      {showTitle && (
+        <strong
+          style={{
+            fontSize: 13,
+            opacity: 0.85,
+            marginBottom: 4,
+          }}
+        >
+          {title}
+        </strong>
+      )}
 
-      <div className="layer-grid" style={{ gridTemplateColumns: gridTemplate }}>
-        {normalized.map((value, index) => {
-          const opacity = 0.12 + value * 0.88;
-          const glow = value > 0.75 ? value * 6 : 0;
+      <div
+        className="layer-grid"
+        style={{
+          gridTemplateColumns: gridTemplate,
+        }}
+      >
+        {values.map((v, i) => {
+          const intensity = 0.15 + v * 0.85;
+          const glow = v > 0.78 ? (v - 0.78) * 18 : 0;
 
           return (
             <div
-              key={`${title}-${index}`}
+              key={i}
               className="neuron"
               style={{
-                background: `rgba(31, 36, 48, ${opacity})`,
+                background: `rgba(31,36,48,${intensity})`,
+                borderColor: `rgba(31,36,48,${
+                  0.3 + v * 0.5
+                })`,
                 boxShadow:
                   glow > 0
-                    ? `0 0 ${glow}px rgba(31, 36, 48, ${value * 0.35})`
+                    ? `0 0 ${glow}px rgba(76,201,240,${
+                        v * 0.35
+                      })`
                     : "none",
-                borderColor: `rgba(31, 36, 48, ${0.25 + value * 0.55})`,
+                transition:
+                  "background 120ms linear, box-shadow 120ms linear",
               }}
             />
           );
@@ -60,4 +91,4 @@ const LayerView: React.FC<LayerViewProps> = ({
   );
 };
 
-export default LayerView;
+export default React.memo(LayerView);
