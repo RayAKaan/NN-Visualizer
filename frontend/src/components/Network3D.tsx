@@ -11,7 +11,6 @@ import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
 
 /* =====================================================
    Types
-===================================================== */
 
 interface Props {
   hidden1: number[];
@@ -28,7 +27,6 @@ interface NodeData {
 
 /* =====================================================
    Configuration
-===================================================== */
 
 const CONFIG = {
   grid: {
@@ -50,7 +48,6 @@ const CONFIG = {
 
 /* =====================================================
    Helpers
-===================================================== */
 
 const calculateGridPositions = (
   activations: number[],
@@ -75,7 +72,6 @@ const calculateGridPositions = (
 
 /* =====================================================
    Neuron Layer (Instanced)
-===================================================== */
 
 const NeuronLayer = ({
   nodes,
@@ -132,7 +128,6 @@ const NeuronLayer = ({
 
 /* =====================================================
    Animated Connection
-===================================================== */
 
 const AnimatedConnection = ({
   start,
@@ -177,7 +172,6 @@ const AnimatedConnection = ({
 
 /* =====================================================
    Active Connections
-===================================================== */
 
 const ActiveConnections = ({
   from,
@@ -223,7 +217,6 @@ const ActiveConnections = ({
 
 /* =====================================================
    Main Component
-===================================================== */
 
 const Network3D: React.FC<Props> = ({
   hidden1,

@@ -9,7 +9,6 @@ interface LayerViewProps {
 
 /* =====================================================
    Helpers (robust + perceptual)
-===================================================== */
 
 const normalizeLayer = (values: number[]) => {
   if (!values || values.length === 0) return [];
@@ -23,7 +22,6 @@ const gammaCorrect = (v: number, gamma = 0.65) =>
 
 /* =====================================================
    Component
-===================================================== */
 
 const LayerView: React.FC<LayerViewProps> = ({
   title,

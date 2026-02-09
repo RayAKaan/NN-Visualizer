@@ -1,6 +1,5 @@
 /* =====================================================
    Edge + Neural State Types (Robust & UI-safe)
-===================================================== */
 
 /**
  * A weighted connection between two neurons.
@@ -46,7 +45,6 @@ export type NeuralState = {
 
 /* =====================================================
    Optional helper types (recommended)
-===================================================== */
 
 /**
  * Defensive empty state you can reuse to avoid undefined checks.
