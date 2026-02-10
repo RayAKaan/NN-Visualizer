@@ -1,8 +1,5 @@
 import React, { useMemo } from "react";
 
-/* =====================================================
-   Types
-
 interface ConnectionViewProps {
   hidden1: number[];
   hidden2: number[];
@@ -25,9 +22,6 @@ interface Connection {
   magnitude: number;
 }
 
-/* =====================================================
-   Layout helpers
-
 const buildPositions = (
   count: number,
   x: number,
@@ -40,9 +34,6 @@ const buildPositions = (
     y: spacing * (i + 1),
   }));
 };
-
-/* =====================================================
-   Connection extraction (READABLE + SAFE)
 
 const extractConnections = (
   weights: unknown,
@@ -91,9 +82,6 @@ const extractConnections = (
   return all.slice(0, globalLimit);
 };
 
-/* =====================================================
-   SVG path cache
-
 const pathCache = new Map<string, string>();
 
 const curvePath = (from: NodePosition, to: NodePosition): string => {
@@ -113,9 +101,6 @@ const curvePath = (from: NodePosition, to: NodePosition): string => {
   pathCache.set(key, path);
   return path;
 };
-
-/* =====================================================
-   Component
 
 const ConnectionView: React.FC<ConnectionViewProps> = ({
   hidden1,

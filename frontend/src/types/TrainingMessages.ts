@@ -1,3 +1,7 @@
+/* =====================================================
+   Training WebSocket Message Types
+===================================================== */
+
 export type BatchMessage = {
   type: "batch";
   epoch: number;
@@ -33,9 +37,30 @@ export type WeightsMessage = {
   };
 };
 
-export type TrainingControlMessage = {
-  command: string;
-  [key: string]: unknown;
+export type TrainingStoppedMessage = {
+  type: "stopped";
 };
 
-export type TrainingMessage = BatchMessage | EpochMessage | WeightsMessage | { type: "stopped" };
+/**
+ * Commands sent FROM frontend TO backend
+ */
+export type TrainingControlMessage = {
+  command:
+    | "configure"
+    | "start"
+    | "pause"
+    | "resume"
+    | "stop"
+    | "step_batch"
+    | "step_epoch";
+  config?: unknown;
+};
+
+/**
+ * Union of all messages coming FROM backend
+ */
+export type TrainingMessage =
+  | BatchMessage
+  | EpochMessage
+  | WeightsMessage
+  | TrainingStoppedMessage;

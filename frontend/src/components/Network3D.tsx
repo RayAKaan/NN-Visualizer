@@ -9,9 +9,6 @@ import {
 } from "@react-three/drei";
 import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
 
-/* =====================================================
-   Types
-
 interface Props {
   hidden1: number[];
   hidden2: number[];
@@ -24,9 +21,6 @@ interface NodeData {
   pos: THREE.Vector3;
   activation: number;
 }
-
-/* =====================================================
-   Configuration
 
 const CONFIG = {
   grid: {
@@ -45,9 +39,6 @@ const CONFIG = {
     maxCount: 220,
   },
 };
-
-/* =====================================================
-   Helpers
 
 const calculateGridPositions = (
   activations: number[],
@@ -69,9 +60,6 @@ const calculateGridPositions = (
     ),
   }));
 };
-
-/* =====================================================
-   Neuron Layer (Instanced)
 
 const NeuronLayer = ({
   nodes,
@@ -126,9 +114,6 @@ const NeuronLayer = ({
   );
 };
 
-/* =====================================================
-   Animated Connection
-
 const AnimatedConnection = ({
   start,
   end,
@@ -169,9 +154,6 @@ const AnimatedConnection = ({
     />
   );
 };
-
-/* =====================================================
-   Active Connections
 
 const ActiveConnections = ({
   from,
@@ -214,9 +196,6 @@ const ActiveConnections = ({
     </>
   );
 };
-
-/* =====================================================
-   Main Component
 
 const Network3D: React.FC<Props> = ({
   hidden1,

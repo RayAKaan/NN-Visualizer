@@ -4,14 +4,8 @@ interface OutputPanelProps {
   probabilities: number[];
 }
 
-/* =====================================================
-   Helpers
-
 const clamp = (v: number, min = 0, max = 1) =>
   Math.min(max, Math.max(min, v));
-
-/* =====================================================
-   Component
 
 const OutputPanel: React.FC<OutputPanelProps> = ({
   probabilities,

@@ -1,53 +1,62 @@
 /* =====================================================
-   Edge + Neural State Types (Robust & UI-safe)
+   Edge + Neural State Types
+   Robust, Serializable, UI-safe
+===================================================== */
 
 /**
  * A weighted connection between two neurons.
- * `from` and `to` are indices (not positions).
+ * `from` and `to` are neuron indices (NOT screen positions).
  */
 export type Edge = {
   from: number;
   to: number;
-  strength: number; // signed, magnitude used for visuals
+  strength: number; // signed weight or gradient
 };
 
 /**
- * Full neural state snapshot used by 3D + analytics views.
- * Designed to be:
- * - serializable
- * - partially available (progressive loading)
- * - safe for rendering
+ * Complete neural state snapshot.
+ * Used by:
+ * - 2D connection view
+ * - 3D network visualization
+ * - Training playback
+ * - Analytics overlays
  */
 export type NeuralState = {
-  /** Raw input pixels (length = 784) */
+  /** Raw input pixels (784 for MNIST, empty during training) */
   input: number[];
 
-  /** Layer activations (normalized or raw depending on usage) */
+  /** Layer activations */
   layers: {
     hidden1: number[];
     hidden2: number[];
     output: number[];
   };
 
-  /** Final prediction */
+  /** Prediction metadata (safe defaults during training) */
   prediction: number;
   confidence: number;
 
-  /** Sparse edge lists for visualization */
+  /** Sparse edge lists for rendering */
   edges: {
-    /** Connections hidden1 → hidden2 */
+    /** hidden1 → hidden2 connections */
     hidden1_hidden2: Edge[];
 
-    /** Connections hidden2 → output (usually only to predicted digit) */
+    /** hidden2 → output connections */
     hidden2_output: Edge[];
   };
 };
 
 /* =====================================================
-   Optional helper types (recommended)
+   Safe empty fallback (IMPORTANT)
+===================================================== */
 
 /**
- * Defensive empty state you can reuse to avoid undefined checks.
+ * Use this when:
+ * - socket not ready
+ * - model still loading
+ * - switching modes
+ *
+ * Prevents 100% of "cannot read property" crashes.
  */
 export const EMPTY_NEURAL_STATE: NeuralState = {
   input: Array(28 * 28).fill(0),

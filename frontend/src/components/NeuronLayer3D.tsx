@@ -8,9 +8,6 @@ interface Props {
   isOutput?: boolean;
 }
 
-/* =====================================================
-   Configuration
-
 const CONFIG = {
   gridGap: 0.6,
   baseScale: 0.2,
@@ -22,9 +19,6 @@ const CONFIG = {
     high: new THREE.Color("#ffffff"),
   },
 };
-
-/* =====================================================
-   Component
 
 const NeuronLayer3D: React.FC<Props> = ({
   activations,

@@ -9,18 +9,12 @@ interface Props {
   zTo: number;
 }
 
-/* =====================================================
-   Visual tuning constants
-
 const MIN_STRENGTH = 0.05;
 const MAX_WIDTH = 2.4;
 const BASE_WIDTH = 0.45;
 
 const POSITIVE_COLOR = new THREE.Color("#7ae694"); // mint green
 const NEGATIVE_COLOR = new THREE.Color("#a162db"); // violet
-
-/* =====================================================
-   Component
 
 const EdgeBundle3D: React.FC<Props> = ({ edges, zFrom, zTo }) => {
   const lines = useMemo(() => {

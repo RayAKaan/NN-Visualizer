@@ -7,9 +7,6 @@ interface LayerViewProps {
   showTitle?: boolean;
 }
 
-/* =====================================================
-   Helpers (robust + perceptual)
-
 const normalizeLayer = (values: number[]) => {
   if (!values || values.length === 0) return [];
   const max = Math.max(...values, 1e-6);
@@ -19,9 +16,6 @@ const normalizeLayer = (values: number[]) => {
 // Perceptual gamma → smoother mid-range contrast
 const gammaCorrect = (v: number, gamma = 0.65) =>
   Math.pow(Math.min(Math.max(v, 0), 1), gamma);
-
-/* =====================================================
-   Component
 
 const LayerView: React.FC<LayerViewProps> = ({
   title,
