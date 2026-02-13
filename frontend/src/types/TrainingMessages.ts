@@ -1,7 +1,9 @@
-export type BatchUpdateMessage = {
-  type: "batch_update";
+export type BatchMessage = {
+  type: "batch";
   epoch: number;
   batch: number;
+  loss: number;
+  accuracy: number;
   activations: {
     hidden1: number[];
     hidden2: number[];
@@ -11,19 +13,10 @@ export type BatchUpdateMessage = {
     hidden1_hidden2: number[][];
     hidden2_output: number[][];
   };
-  weights: {
-    hidden1_hidden2: number[][];
-    hidden2_output: number[][];
-  };
-  loss: number;
-  accuracy: number;
-  learning_rate: number;
-  gradient_norm: number;
-  timestamp: number;
 };
 
-export type EpochUpdateMessage = {
-  type: "epoch_update";
+export type EpochMessage = {
+  type: "epoch";
   epoch: number;
   loss: number;
   accuracy: number;
@@ -31,8 +24,8 @@ export type EpochUpdateMessage = {
   val_accuracy: number;
 };
 
-export type WeightsUpdateMessage = {
-  type: "weights_update";
+export type WeightsMessage = {
+  type: "weights";
   epoch: number;
   weights: {
     hidden1_hidden2: number[][];
@@ -40,21 +33,30 @@ export type WeightsUpdateMessage = {
   };
 };
 
-export type StatusMessage = {
-  type: "status";
-  status: string;
+export type TrainingStoppedMessage = {
+  type: "stopped";
 };
 
-export type ErrorMessage = {
-  type: "error";
-  message: string;
+/**
+ * Commands sent FROM frontend TO backend
+ */
+export type TrainingControlMessage = {
+  command:
+    | "configure"
+    | "start"
+    | "pause"
+    | "resume"
+    | "stop"
+    | "step_batch"
+    | "step_epoch";
+  config?: unknown;
 };
 
+/**
+ * Union of all messages coming FROM backend
+ */
 export type TrainingMessage =
-  | BatchUpdateMessage
-  | EpochUpdateMessage
-  | WeightsUpdateMessage
-  | StatusMessage
-  | ErrorMessage
-  | { type: "training_stopped" }
-  | { type: "training_complete"; metrics?: Record<string, unknown> };
+  | BatchMessage
+  | EpochMessage
+  | WeightsMessage
+  | TrainingStoppedMessage;
