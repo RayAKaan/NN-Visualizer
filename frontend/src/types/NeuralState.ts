@@ -1,7 +1,6 @@
 /* =====================================================
    Edge + Neural State Types
    Robust, Serializable, UI-safe
-===================================================== */
 
 /**
  * A weighted connection between two neurons.
@@ -48,7 +47,6 @@ export type NeuralState = {
 
 /* =====================================================
    Safe empty fallback (IMPORTANT)
-===================================================== */
 
 /**
  * Use this when:

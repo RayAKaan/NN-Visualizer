@@ -16,7 +16,6 @@ import { useTrainingSocket, TrainingConfig } from "./hooks/useTrainingSocket";
 
 /* =====================================================
    Config
-===================================================== */
 
 const API_BASE =
   import.meta.env.VITE_API_BASE ?? "http://localhost:8000";
@@ -33,7 +32,6 @@ const STABLE_FRAMES = 6;
 
 /* =====================================================
    Default Training Config
-===================================================== */
 
 const DEFAULT_TRAINING_CONFIG: TrainingConfig = {
   learningRate: 0.001,
@@ -48,7 +46,6 @@ const DEFAULT_TRAINING_CONFIG: TrainingConfig = {
 
 /* =====================================================
    Helpers
-===================================================== */
 
 const smooth = (
   prev: number[],
@@ -71,7 +68,6 @@ const normalize = (layer: number[]): number[] => {
 
 /* =====================================================
    Types
-===================================================== */
 
 type Explanation = {
   prediction: number;
@@ -85,7 +81,6 @@ type Explanation = {
 
 /* =====================================================
    App
-===================================================== */
 
 const App: React.FC = () => {
   /* ---------------- mode ---------------- */

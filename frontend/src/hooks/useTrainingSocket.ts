@@ -1,10 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { NeuralState, Edge } from "../types/NeuralState";
 
-/* =====================================================
-   Types
-===================================================== */
-
 export interface TrainingConfig {
   learningRate: number;
   batchSize: number;
@@ -53,7 +49,6 @@ type TrainingEvent =
 
 /* =====================================================
    Helpers
-===================================================== */
 
 /** Convert dense matrix → sparse edge list */
 function matrixToEdges(
@@ -82,10 +77,6 @@ function matrixToEdges(
 
   return edges;
 }
-
-/* =====================================================
-   Hook
-===================================================== */
 
 export function useTrainingSocket(initialConfig: TrainingConfig) {
   const socketRef = useRef<WebSocket | null>(null);

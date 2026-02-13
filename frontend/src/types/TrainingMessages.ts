@@ -1,7 +1,3 @@
-/* =====================================================
-   Training WebSocket Message Types
-===================================================== */
-
 export type BatchMessage = {
   type: "batch";
   epoch: number;
