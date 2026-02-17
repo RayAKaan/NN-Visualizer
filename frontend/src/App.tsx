@@ -1,381 +1,359 @@
-import React, { useEffect, useMemo, useState } from "react";
-import PredictionMode from "./components/PredictionMode";
+import React, {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useCallback,
+} from "react";
+
+import CanvasGrid from "./components/CanvasGrid";
+import LayerView from "./components/LayerView";
+import ConnectionView from "./components/ConnectionView";
+import Network3D from "./components/Network3D";
+
 import TrainingMode from "./components/training/TrainingMode";
-import { Edge, NeuralState } from "./types/NeuralState";
-import { TrainingMessage } from "./types/TrainingMessages";
-import { usePredictionSocket } from "./hooks/usePredictionSocket";
-import { useTrainingSocket } from "./hooks/useTrainingSocket";
+import { useTrainingSocket, TrainingConfig } from "./hooks/useTrainingSocket";
 
-const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000";
-const WS_BASE = API_BASE.replace("http", "ws");
+const API_BASE =
+  import.meta.env.VITE_API_BASE ?? "http://localhost:8000";
 
-const createBlankPixels = () => Array.from({ length: 28 * 28 }, () => 0);
+const GRID_PIXELS = 28 * 28;
+const BLANK_PIXELS = Array(GRID_PIXELS).fill(0);
 
-type PredictionExplanation = {
-  prediction: number;
-  confidence: number;
-  margin: number;
-  top_hidden2_neurons: Array<{
-    neuron: number;
-    activation: number;
-    weight: number;
-    contribution: number;
-  }>;
-  quadrant_intensity: Record<string, number>;
-  competing_digits: Array<{ digit: number; probability: number; positive_support: number }>;
-  uncertainty_notes: string[];
-  hidden1_summary: { mean_activation: number; max_activation: number };
+const FRAME_INTERVAL = 33;
+const HIDDEN_ALPHA = 0.35;
+const OUTPUT_ALPHA = 0.18;
+
+const CONFIDENCE_THRESHOLD = 0.75;
+const STABLE_FRAMES = 6;
+
+const DEFAULT_TRAINING_CONFIG: TrainingConfig = {
+  learningRate: 0.001,
+  batchSize: 128,
+  epochs: 10,
+  optimizer: "adam",
+  weightDecay: 0.0001,
+  activation: "relu",
+  initializer: "glorot_uniform",
+  dropout: 0,
 };
 
-type TrainingSnapshot = {
-  hidden1: number[];
-  hidden2: number[];
-  output: number[];
-  gradientsHidden1Hidden2: number[][] | null;
-  gradientsHidden2Output: number[][] | null;
-  weightsHidden1Hidden2: number[][] | null;
-  weightsHidden2Output: number[][] | null;
+const smooth = (
+  prev: number[],
+  next?: number[],
+  alpha = 0.3
+): number[] => {
+  if (!Array.isArray(next) || prev.length === 0) return prev;
+  const len = Math.min(prev.length, next.length);
+  const out = prev.slice();
+  for (let i = 0; i < len; i++) {
+    out[i] = prev[i] + alpha * (next[i] - prev[i]);
+  }
+  return out;
+};
+
+const normalize = (layer: number[]): number[] => {
+  const max = Math.max(...layer, 1e-6);
+  return layer.map((v) => v / max);
+};
+
+type Explanation = {
+  prediction: number;
+  confidence: number;
+  top_hidden2_neurons?: Array<{
+    neuron: number;
+    activation: number;
+    contribution: number;
+  }>;
 };
 
 const App: React.FC = () => {
-  const [mode, setMode] = useState<"predict" | "train">("predict");
-  const [view, setView] = useState<"2d" | "3d">("2d");
+  /* ---------------- mode ---------------- */
 
-  const [pixels, setPixels] = useState<number[]>(createBlankPixels());
-  const [weightsHidden1Hidden2, setWeightsHidden1Hidden2] = useState<number[][] | null>(null);
-  const [weightsHidden2Output, setWeightsHidden2Output] = useState<number[][] | null>(null);
+  const [mode, setMode] =
+    useState<"inference" | "training">("inference");
 
-  const [hidden1, setHidden1] = useState<number[]>(Array.from({ length: 128 }, () => 0));
-  const [hidden2, setHidden2] = useState<number[]>(Array.from({ length: 64 }, () => 0));
-  const [probabilities, setProbabilities] = useState<number[]>(Array.from({ length: 10 }, () => 0));
-  const [prediction, setPrediction] = useState<number | null>(null);
-  const [explanation, setExplanation] = useState<PredictionExplanation | null>(null);
-  const [state3D, setState3D] = useState<NeuralState | null>(null);
-  const [predictError, setPredictError] = useState<string | null>(null);
+  const [viewMode, setViewMode] =
+    useState<"2d" | "3d">("2d");
 
-  const [trainingHidden1, setTrainingHidden1] = useState<number[]>(Array.from({ length: 128 }, () => 0));
-  const [trainingHidden2, setTrainingHidden2] = useState<number[]>(Array.from({ length: 64 }, () => 0));
-  const [trainingOutput, setTrainingOutput] = useState<number[]>(Array.from({ length: 10 }, () => 0));
-  const [trainingWeightsHidden1Hidden2, setTrainingWeightsHidden1Hidden2] = useState<number[][] | null>(null);
-  const [trainingWeightsHidden2Output, setTrainingWeightsHidden2Output] = useState<number[][] | null>(null);
-  const [trainingGradientsHidden1Hidden2, setTrainingGradientsHidden1Hidden2] = useState<number[][] | null>(null);
-  const [trainingGradientsHidden2Output, setTrainingGradientsHidden2Output] = useState<number[][] | null>(null);
-  const [trainingState3D, setTrainingState3D] = useState<NeuralState | null>(null);
-  const [trainingStatus, setTrainingStatus] = useState("idle");
+  /* ---------------- inference state ---------------- */
 
-  const [lossHistory, setLossHistory] = useState<number[]>([]);
-  const [accuracyHistory, setAccuracyHistory] = useState<number[]>([]);
-  const [valLossHistory, setValLossHistory] = useState<number[]>([]);
-  const [valAccuracyHistory, setValAccuracyHistory] = useState<number[]>([]);
-  const [gradientNormHistory, setGradientNormHistory] = useState<number[]>([]);
-  const [learningRateHistory, setLearningRateHistory] = useState<number[]>([]);
-  const [weightHistory, setWeightHistory] = useState<number[]>([]);
+  const [pixels, setPixels] =
+    useState<number[]>(BLANK_PIXELS);
 
-  const [snapshots, setSnapshots] = useState<TrainingSnapshot[]>([]);
-  const [timelineIndex, setTimelineIndex] = useState(0);
-  const [timelineLive, setTimelineLive] = useState(true);
+  const [hidden1, setHidden1] =
+    useState<number[]>(Array(128).fill(0));
+  const [hidden2, setHidden2] =
+    useState<number[]>(Array(64).fill(0));
+  const [probs, setProbs] =
+    useState<number[]>(Array(10).fill(0));
 
-  const [trainingControls, setTrainingControls] = useState({
-    learningRate: 0.001,
-    batchSize: 64,
-    epochs: 5,
-    optimizer: "adam",
-    weightDecay: 0,
-    activation: "relu",
-    initializer: "glorot_uniform",
-    dropout: 0,
-  });
+  const [stablePrediction, setStablePrediction] =
+    useState<number | null>(null);
+  const [isConfident, setIsConfident] =
+    useState(false);
 
-  const predictionStream = usePredictionSocket(API_BASE, pixels, mode === "predict");
-  const trainingSocket = useTrainingSocket(mode === "train", WS_BASE);
+  const [explanation, setExplanation] =
+    useState<Explanation | null>(null);
+  const [error, setError] =
+    useState<string | null>(null);
 
-  const normalizedHidden1 = useMemo(() => hidden1.map((value) => Math.min(1, Math.max(0, value))), [hidden1]);
-  const normalizedHidden2 = useMemo(() => hidden2.map((value) => Math.min(1, Math.max(0, value))), [hidden2]);
-  const normalizedOutput = useMemo(
-    () => probabilities.map((value) => Math.min(1, Math.max(0, value))),
-    [probabilities]
-  );
+  const [w12, setW12] =
+    useState<number[][] | null>(null);
+  const [w2o, setW2o] =
+    useState<number[][] | null>(null);
 
-  const maxIndex = probabilities.reduce(
-    (max, value, index) => (value > probabilities[max] ? index : max),
-    0
-  );
+  /* ---------------- refs ---------------- */
+
+  const rafRef = useRef<number | null>(null);
+  const lastFrameRef = useRef(0);
+  const pixelsRef = useRef(pixels);
+  const lastPredictionRef = useRef<number | null>(null);
+  const stableCountRef = useRef(0);
+
+  /* ---------------- training ---------------- */
+
+  const training = useTrainingSocket(DEFAULT_TRAINING_CONFIG);
+
+  /* =====================================================
+     Training command dispatcher
+  ===================================================== */
+
+  const handleTrainingCommand = (command: string) => {
+    switch (command) {
+      case "configure":
+        training.configure();
+        break;
+      case "start":
+        training.start();
+        break;
+      case "pause":
+        training.pause();
+        break;
+      case "resume":
+        training.resume();
+        break;
+      case "stop":
+        training.stop();
+        break;
+      case "step_batch":
+        training.stepBatch();
+        break;
+      case "step_epoch":
+        training.stepEpoch();
+        break;
+      default:
+        console.warn("Unknown training command:", command);
+    }
+  };
+
+  /* =====================================================
+     Sync refs
+  ===================================================== */
 
   useEffect(() => {
-    const loadWeights = async () => {
+    pixelsRef.current = pixels;
+  }, [pixels]);
+
+  /* =====================================================
+     Load inference weights
+  ===================================================== */
+
+  useEffect(() => {
+    (async () => {
       try {
-        const response = await fetch(`${API_BASE}/weights`);
-        if (!response.ok) {
-          throw new Error();
-        }
-        const data = await response.json();
-        setWeightsHidden1Hidden2(data.hidden1_hidden2);
-        setWeightsHidden2Output(data.hidden2_output);
+        const res = await fetch(`${API_BASE}/weights`);
+        const data = await res.json();
+        setW12(data.hidden1_hidden2);
+        setW2o(data.hidden2_output);
       } catch {
-        setPredictError("Failed loading weights.");
+        setError("Model weights unavailable");
       }
-    };
-    loadWeights();
+    })();
   }, []);
 
-  useEffect(() => {
-    if (!predictionStream.data) return;
-    setHidden1(predictionStream.data.layers.hidden1);
-    setHidden2(predictionStream.data.layers.hidden2);
-    setProbabilities(predictionStream.data.probabilities);
-    setPrediction(predictionStream.data.prediction);
-    setExplanation((predictionStream.data as { explanation?: PredictionExplanation }).explanation ?? null);
-    setPredictError(predictionStream.error);
-  }, [predictionStream.data, predictionStream.error]);
+  /* =====================================================
+     Inference loop
+  ===================================================== */
 
-  useEffect(() => {
-    if (mode !== "predict" || view !== "3d") return;
-    const timeout = setTimeout(async () => {
+  const infer = useCallback(
+    async (time: number) => {
+      if (mode !== "inference") return;
+
+      if (time - lastFrameRef.current < FRAME_INTERVAL) {
+        rafRef.current = requestAnimationFrame(infer);
+        return;
+      }
+
+      lastFrameRef.current = time;
+
       try {
-        const response = await fetch(`${API_BASE}/state`, {
+        const res = await fetch(`${API_BASE}/predict`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ pixels }),
+          body: JSON.stringify({ pixels: pixelsRef.current }),
         });
-        if (!response.ok) throw new Error();
-        setState3D(await response.json());
-      } catch {
-        setPredictError("Failed loading 3D prediction state.");
-      }
-    }, 40);
 
-    return () => clearTimeout(timeout);
-  }, [mode, view, pixels]);
+        const data = await res.json();
 
-  const buildEdges = (weights: number[][], activations: number[], limit: number): Edge[] => {
-    const edges: Edge[] = [];
-    weights.forEach((row, from) => {
-      row.forEach((weight, to) => {
-        edges.push({ from, to, strength: weight * (activations[from] ?? 0) });
-      });
-    });
-    return edges.sort((a, b) => Math.abs(b.strength) - Math.abs(a.strength)).slice(0, limit);
-  };
+        setHidden1((p) =>
+          smooth(p, data.layers.hidden1, HIDDEN_ALPHA)
+        );
+        setHidden2((p) =>
+          smooth(p, data.layers.hidden2, HIDDEN_ALPHA)
+        );
+        setProbs((p) =>
+          smooth(p, data.probabilities, OUTPUT_ALPHA)
+        );
 
-  useEffect(() => {
-    if (mode !== "train" || trainingSocket.messages.length === 0) return;
+        const pred = data.prediction;
+        const conf = data.probabilities[pred];
 
-    const typed = trainingSocket.messages[trainingSocket.messages.length - 1] as TrainingMessage;
-
-    if (typed.type === "batch_update") {
-      setTrainingHidden1(typed.activations.hidden1);
-      setTrainingHidden2(typed.activations.hidden2);
-      setTrainingOutput(typed.activations.output);
-      setTrainingWeightsHidden1Hidden2(typed.weights.hidden1_hidden2);
-      setTrainingWeightsHidden2Output(typed.weights.hidden2_output);
-      setTrainingGradientsHidden1Hidden2(typed.gradients.hidden1_hidden2);
-      setTrainingGradientsHidden2Output(typed.gradients.hidden2_output);
-
-      setLossHistory((prev) => [...prev, typed.loss].slice(-1000));
-      setAccuracyHistory((prev) => [...prev, typed.accuracy].slice(-1000));
-      setGradientNormHistory((prev) => [...prev, typed.gradient_norm].slice(-1000));
-      setLearningRateHistory((prev) => [...prev, typed.learning_rate].slice(-1000));
-
-      const weightMagnitude =
-        typed.weights.hidden2_output.length > 0
-          ? Math.abs(typed.weights.hidden2_output[0]?.[0] ?? 0)
-          : 0;
-      setWeightHistory((prev) => [...prev, weightMagnitude].slice(-1000));
-
-      setSnapshots((prev) => {
-        const next = [
-          ...prev,
-          {
-            hidden1: typed.activations.hidden1,
-            hidden2: typed.activations.hidden2,
-            output: typed.activations.output,
-            gradientsHidden1Hidden2: typed.gradients.hidden1_hidden2,
-            gradientsHidden2Output: typed.gradients.hidden2_output,
-            weightsHidden1Hidden2: typed.weights.hidden1_hidden2,
-            weightsHidden2Output: typed.weights.hidden2_output,
-          },
-        ].slice(-1000);
-        if (timelineLive) {
-          setTimelineIndex(next.length - 1);
+        if (lastPredictionRef.current === pred) {
+          stableCountRef.current++;
+        } else {
+          stableCountRef.current = 1;
+          lastPredictionRef.current = pred;
         }
-        return next;
-      });
-    }
 
-    if (typed.type === "epoch_update") {
-      setValLossHistory((prev) => [...prev, typed.val_loss].slice(-500));
-      setValAccuracyHistory((prev) => [...prev, typed.val_accuracy].slice(-500));
-    }
+        setIsConfident(
+          stableCountRef.current >= STABLE_FRAMES &&
+            conf >= CONFIDENCE_THRESHOLD
+        );
+        setStablePrediction(pred);
+        setExplanation(data.explanation);
+      } catch {
+        setError("Prediction failed");
+      }
 
-    if (typed.type === "weights_update") {
-      setTrainingWeightsHidden1Hidden2(typed.weights.hidden1_hidden2);
-      setTrainingWeightsHidden2Output(typed.weights.hidden2_output);
-    }
-
-    if (typed.type === "status") setTrainingStatus(typed.status);
-    if (typed.type === "training_complete") setTrainingStatus("completed");
-    if (typed.type === "training_stopped") setTrainingStatus("stopped");
-    if (typed.type === "error") setTrainingStatus(`error: ${typed.message}`);
-  }, [trainingSocket.messages, mode, timelineLive]);
+      rafRef.current = requestAnimationFrame(infer);
+    },
+    [mode]
+  );
 
   useEffect(() => {
-    if (mode !== "train" || view !== "3d") return;
+    rafRef.current = requestAnimationFrame(infer);
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, [infer]);
 
-    if (trainingSocket.latestState) {
-      setTrainingState3D(trainingSocket.latestState);
-      return;
-    }
+  /* =====================================================
+     Normalized visuals
+  ===================================================== */
 
-    if (!trainingWeightsHidden1Hidden2 || !trainingWeightsHidden2Output) return;
+  const nHidden1 = useMemo(() => normalize(hidden1), [hidden1]);
+  const nHidden2 = useMemo(() => normalize(hidden2), [hidden2]);
+  const nOutput = useMemo(() => normalize(probs), [probs]);
 
-    setTrainingState3D({
-      input: [],
-      layers: {
-        hidden1: trainingHidden1,
-        hidden2: trainingHidden2,
-        output: trainingOutput,
-      },
-      prediction: trainingOutput.indexOf(Math.max(...trainingOutput)),
-      confidence: Math.max(...trainingOutput),
-      edges: {
-        hidden1_hidden2: buildEdges(trainingWeightsHidden1Hidden2, trainingHidden1, 240),
-        hidden2_output: buildEdges(trainingWeightsHidden2Output, trainingHidden2, 160),
-      },
-    });
-  }, [
-    mode,
-    view,
-    trainingSocket.latestState,
-    trainingHidden1,
-    trainingHidden2,
-    trainingOutput,
-    trainingWeightsHidden1Hidden2,
-    trainingWeightsHidden2Output,
-  ]);
+  const maxDigit = useMemo(
+    () => probs.indexOf(Math.max(...probs)),
+    [probs]
+  );
 
-  useEffect(() => {
-    if (mode !== "train") return;
-    const current = snapshots[timelineIndex];
-    if (!current) return;
-    setTrainingHidden1(current.hidden1);
-    setTrainingHidden2(current.hidden2);
-    setTrainingOutput(current.output);
-    setTrainingGradientsHidden1Hidden2(current.gradientsHidden1Hidden2);
-    setTrainingGradientsHidden2Output(current.gradientsHidden2Output);
-    setTrainingWeightsHidden1Hidden2(current.weightsHidden1Hidden2);
-    setTrainingWeightsHidden2Output(current.weightsHidden2Output);
-  }, [mode, snapshots, timelineIndex]);
-
-  const sendTrainingCommand = (command: string) => {
-    if (command === "configure") {
-      trainingSocket.send({
-        command: "configure",
-        learning_rate: trainingControls.learningRate,
-        batch_size: trainingControls.batchSize,
-        epochs: trainingControls.epochs,
-        optimizer: trainingControls.optimizer,
-        weight_decay: trainingControls.weightDecay,
-        activation: trainingControls.activation,
-        initializer: trainingControls.initializer,
-        dropout: trainingControls.dropout,
-      });
-      return;
-    }
-    trainingSocket.send({ command });
-  };
+  /* =====================================================
+     Render
+  ===================================================== */
 
   return (
-    <div className="app">
+    <div className="app landscape">
       <header className="hero">
-        <h1>Neural network visualization.</h1>
-        <p>Training + prediction lab with 2D/3D introspection.</p>
+        <h1>NN Visualizer</h1>
+        <p>Inference & Training Introspection</p>
+
+        <div className="mode-toggle">
+          <button onClick={() => setMode("inference")}>
+            Inference
+          </button>
+          <button onClick={() => setMode("training")}>
+            Training
+          </button>
+        </div>
       </header>
 
-      <div className="mode-toggle">
-        <button type="button" onClick={() => setMode((m) => (m === "predict" ? "train" : "predict"))}>
-          Switch to {mode === "predict" ? "Training" : "Prediction"} mode
-        </button>
-        {mode === "train" && <span className="status-pill">Status: {trainingStatus || "idle"}</span>}
-      </div>
-
-      {mode === "predict" ? (
-        <PredictionMode
-          view={view}
-          onToggleView={() => setView((v) => (v === "2d" ? "3d" : "2d"))}
-          probabilities={probabilities}
-          maxIndex={maxIndex}
-          hidden1={normalizedHidden1}
-          hidden2={normalizedHidden2}
-          output={normalizedOutput}
-          state3D={state3D}
-          weightsHidden1Hidden2={weightsHidden1Hidden2}
-          weightsHidden2Output={weightsHidden2Output}
-          pixels={pixels}
-          onPixelsChange={setPixels}
-          prediction={prediction}
-          error={predictError}
-        />
+      {mode === "training" ? (
+        training.ready ? (
+          <TrainingMode
+            view={viewMode}
+            onToggleView={() =>
+              setViewMode((v) => (v === "2d" ? "3d" : "2d"))
+            }
+            state3D={training.state3D}
+            hidden1={training.hidden1}
+            hidden2={training.hidden2}
+            output={training.output}
+            weightsHidden1Hidden2={training.weightsHidden1Hidden2}
+            weightsHidden2Output={training.weightsHidden2Output}
+            lossHistory={training.lossHistory}
+            accuracyHistory={training.accuracyHistory}
+            valLossHistory={training.valLossHistory}
+            valAccuracyHistory={training.valAccuracyHistory}
+            controlState={training.controlState}
+            onControlChange={training.updateControl}
+            onCommand={handleTrainingCommand}
+          />
+        ) : (
+          <div className="panel loading">
+            <p>Training not started</p>
+          </div>
+        )
       ) : (
-        <TrainingMode
-          view={view}
-          onToggleView={() => setView((v) => (v === "2d" ? "3d" : "2d"))}
-          state3D={trainingState3D}
-          hidden1={trainingHidden1}
-          hidden2={trainingHidden2}
-          output={trainingOutput}
-          weightsHidden1Hidden2={trainingWeightsHidden1Hidden2}
-          weightsHidden2Output={trainingWeightsHidden2Output}
-          gradientsHidden1Hidden2={trainingGradientsHidden1Hidden2}
-          gradientsHidden2Output={trainingGradientsHidden2Output}
-          lossHistory={lossHistory}
-          accuracyHistory={accuracyHistory}
-          valLossHistory={valLossHistory}
-          valAccuracyHistory={valAccuracyHistory}
-          gradientNormHistory={gradientNormHistory}
-          learningRateHistory={learningRateHistory}
-          weightHistory={weightHistory}
-          timelineIndex={timelineIndex}
-          timelineMax={Math.max(0, snapshots.length - 1)}
-          onTimelineChange={(next) => {
-            setTimelineLive(false);
-            setTimelineIndex(next);
-          }}
-          onTimelineReplay={() => {
-            setTimelineLive(true);
-            setTimelineIndex(Math.max(0, snapshots.length - 1));
-          }}
-          onReplaySnapshot={(snapshot) => {
-            if (!snapshot) return;
-            setTrainingHidden1(snapshot.activations.hidden1);
-            setTrainingHidden2(snapshot.activations.hidden2);
-            setTrainingOutput(snapshot.activations.output);
-            setTrainingGradientsHidden1Hidden2(snapshot.gradients.hidden1_hidden2);
-            setTrainingGradientsHidden2Output(snapshot.gradients.hidden2_output);
-            setTrainingWeightsHidden1Hidden2(snapshot.weights.hidden1_hidden2);
-            setTrainingWeightsHidden2Output(snapshot.weights.hidden2_output);
-          }}
-          controlState={trainingControls}
-          onControlChange={(field, value) =>
-            setTrainingControls((prev) => ({ ...prev, [field]: value }))
-          }
-          onCommand={sendTrainingCommand}
-        />
-      )}
+        <section className="visualizer landscape-layout">
+          <aside className="panel panel-left">
+            <CanvasGrid pixels={pixels} onChange={setPixels} />
+            <button onClick={() => setPixels([...BLANK_PIXELS])}>
+              Clear
+            </button>
+            <p>
+              Prediction:{" "}
+              {isConfident ? stablePrediction : "uncertain"}
+            </p>
+          </aside>
 
-      {mode === "predict" && (
-        <section className="explanation-panel">
-          <h2>Decision explanation</h2>
-          {explanation ? (
-            <div className="explanation">
-              <p>
-                Primary digit: <strong>{explanation.prediction}</strong> (confidence{" "}
-                {(explanation.confidence * 100).toFixed(1)}%, margin{" "}
-                {(explanation.margin * 100).toFixed(1)}%).
-              </p>
+          <main className="panel panel-center">
+            {viewMode === "2d" && w12 && w2o ? (
+              <>
+                <ConnectionView
+                  hidden1={hidden1}
+                  hidden2={hidden2}
+                  output={probs}
+                  weightsHidden1Hidden2={w12}
+                  weightsHidden2Output={w2o}
+                />
+                <LayerView
+                  title="Hidden Layer 1"
+                  activations={nHidden1}
+                  columns={32}
+                />
+                <LayerView
+                  title="Hidden Layer 2"
+                  activations={nHidden2}
+                  columns={16}
+                />
+              </>
+            ) : (
+              <Network3D
+                hidden1={nHidden1}
+                hidden2={nHidden2}
+                output={nOutput}
+                weightsHidden1Hidden2={w12}
+                weightsHidden2Output={w2o}
+              />
+            )}
+          </main>
+
+          <aside className="panel panel-right">
+            <div className="output-row">
+              {probs.map((_, i) => (
+                <div
+                  key={i}
+                  className={i === maxDigit ? "active" : ""}
+                >
+                  {i}
+                </div>
+              ))}
             </div>
-          ) : (
-            <p>No explanation available yet.</p>
-          )}
+          </aside>
         </section>
       )}
     </div>

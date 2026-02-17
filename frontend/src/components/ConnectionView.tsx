@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo } from "react";
 
 interface ConnectionViewProps {
   hidden1: number[];
@@ -6,8 +6,6 @@ interface ConnectionViewProps {
   output: number[];
   weightsHidden1Hidden2: number[][] | null;
   weightsHidden2Output: number[][] | null;
-  gradientsHidden1Hidden2?: number[][] | null;
-  gradientsHidden2Output?: number[][] | null;
   width?: number;
   height?: number;
 }
@@ -20,33 +18,88 @@ interface NodePosition {
 interface Connection {
   from: NodePosition;
   to: NodePosition;
-  intensity: number;
-  gradient: number;
+  signed: number;
+  magnitude: number;
 }
 
-const buildPositions = (count: number, x: number, height: number) => {
+const buildPositions = (
+  count: number,
+  x: number,
+  height: number
+): NodePosition[] => {
+  if (count <= 0) return [];
   const spacing = height / (count + 1);
-  return Array.from({ length: count }, (_, index) => ({ x, y: spacing * (index + 1) }));
+  return Array.from({ length: count }, (_, i) => ({
+    x,
+    y: spacing * (i + 1),
+  }));
 };
 
-const topConnections = (
-  weights: number[][],
-  gradients: number[][] | null,
-  sourceActivations: number[],
-  sourcePositions: NodePosition[],
-  targetPositions: NodePosition[],
-  maxConnections: number
+const extractConnections = (
+  weights: unknown,
+  activations: number[],
+  fromPos: NodePosition[],
+  toPos: NodePosition[],
+  perNeuronLimit: number,
+  globalLimit: number
 ): Connection[] => {
-  const flat: Connection[] = [];
-  for (let i = 0; i < weights.length; i += 1) {
-    for (let j = 0; j < weights[i].length; j += 1) {
-      const intensity = (weights[i][j] ?? 0) * (sourceActivations[i] ?? 0);
-      const gradient = gradients?.[i]?.[j] ?? 0;
-      if (Math.abs(intensity) < 0.01 && Math.abs(gradient) < 0.01) continue;
-      flat.push({ from: sourcePositions[i], to: targetPositions[j], intensity, gradient });
+  if (!Array.isArray(weights)) return [];
+
+  const all: Connection[] = [];
+
+  for (let i = 0; i < weights.length; i++) {
+    const row = weights[i];
+
+    // 🔒 HARD GUARD
+    if (!Array.isArray(row)) continue;
+
+    const a = activations[i] ?? 0;
+    if (Math.abs(a) < 0.06) continue;
+
+    const local: Connection[] = [];
+
+    for (let j = 0; j < row.length; j++) {
+      const w = row[j];
+      if (typeof w !== "number") continue;
+
+      const signed = w * a;
+      const magnitude = Math.abs(signed);
+      if (magnitude < 0.05) continue;
+
+      local.push({
+        from: fromPos[i],
+        to: toPos[j],
+        signed,
+        magnitude,
+      });
     }
+
+    local.sort((a, b) => b.magnitude - a.magnitude);
+    all.push(...local.slice(0, perNeuronLimit));
   }
-  return flat.sort((a, b) => Math.abs(b.intensity) - Math.abs(a.intensity)).slice(0, maxConnections);
+
+  all.sort((a, b) => b.magnitude - a.magnitude);
+  return all.slice(0, globalLimit);
+};
+
+const pathCache = new Map<string, string>();
+
+const curvePath = (from: NodePosition, to: NodePosition): string => {
+  const key = `${from.x}|${from.y}|${to.x}|${to.y}`;
+  const cached = pathCache.get(key);
+  if (cached) return cached;
+
+  const dx = to.x - from.x;
+  const cx1 = from.x + dx * 0.45;
+  const cx2 = from.x + dx * 0.55;
+
+  const path = `M ${from.x} ${from.y}
+                C ${cx1} ${from.y},
+                  ${cx2} ${to.y},
+                  ${to.x} ${to.y}`;
+
+  pathCache.set(key, path);
+  return path;
 };
 
 const ConnectionView: React.FC<ConnectionViewProps> = ({
@@ -55,100 +108,104 @@ const ConnectionView: React.FC<ConnectionViewProps> = ({
   output,
   weightsHidden1Hidden2,
   weightsHidden2Output,
-  gradientsHidden1Hidden2 = null,
-  gradientsHidden2Output = null,
-  width = 700,
-  height = 360,
+  width = 900,
+  height = 320,
 }) => {
-  const [tick, setTick] = useState(0);
-
-  useEffect(() => {
-    let raf = 0;
-    const animate = () => {
-      setTick((t) => t + 1);
-      raf = requestAnimationFrame(animate);
-    };
-    raf = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(raf);
-  }, []);
-
-  const { hidden1Positions, hidden2Positions, outputPositions, connections } = useMemo(() => {
-    const hidden1Positions = buildPositions(hidden1.length, 100, height);
-    const hidden2Positions = buildPositions(hidden2.length, width / 2, height);
-    const outputPositions = buildPositions(output.length, width - 80, height);
+  const { h1, h2, out, connections } = useMemo(() => {
+    const h1 = buildPositions(hidden1.length, 90, height);
+    const h2 = buildPositions(hidden2.length, width * 0.5, height);
+    const out = buildPositions(output.length, width - 80, height);
 
     const connections: Connection[] = [];
+
     if (weightsHidden1Hidden2) {
       connections.push(
-        ...topConnections(
+        ...extractConnections(
           weightsHidden1Hidden2,
-          gradientsHidden1Hidden2,
           hidden1,
-          hidden1Positions,
-          hidden2Positions,
-          160
-        )
-      );
-    }
-    if (weightsHidden2Output) {
-      connections.push(
-        ...topConnections(
-          weightsHidden2Output,
-          gradientsHidden2Output,
-          hidden2,
-          hidden2Positions,
-          outputPositions,
-          100
+          h1,
+          h2,
+          3,    // per hidden1 neuron
+          140   // global cap
         )
       );
     }
 
-    return { hidden1Positions, hidden2Positions, outputPositions, connections };
+    if (weightsHidden2Output) {
+      connections.push(
+        ...extractConnections(
+          weightsHidden2Output,
+          hidden2,
+          h2,
+          out,
+          4,    // per hidden2 neuron
+          70
+        )
+      );
+    }
+
+    return { h1, h2, out, connections };
   }, [
     hidden1,
     hidden2,
     output,
     weightsHidden1Hidden2,
     weightsHidden2Output,
-    gradientsHidden1Hidden2,
-    gradientsHidden2Output,
     width,
     height,
   ]);
 
-  const pulse = 0.5 + 0.5 * Math.sin(tick * 0.08);
-
   return (
-    <svg className="connection-svg" viewBox={`0 0 ${width} ${height}`}>
-      {connections.map((connection, index) => {
-        const gradMag = Math.abs(connection.gradient);
-        const color = connection.gradient >= 0 ? "rgba(59,130,246,0.7)" : "rgba(239,68,68,0.7)";
-        const thickness = Math.max(0.6, Math.min(4.5, gradMag * 2.5 + Math.abs(connection.intensity) * 2));
-        const opacity = Math.max(0.15, Math.min(0.95, 0.2 + gradMag * 0.8 * pulse));
+    <svg
+      className="connection-svg"
+      viewBox={`0 0 ${width} ${height}`}
+      shapeRendering="geometricPrecision"
+    >
+      {/* Connections */}
+      {connections.map((c, i) => {
+        const energy = Math.pow(c.magnitude, 0.6);
+        const strokeWidth = 0.8 + energy * 2.6;
+        const opacity = Math.min(0.8, energy * 0.9);
+
+        const color =
+          c.signed >= 0
+            ? `rgba(76,201,240,${opacity})`
+            : `rgba(199,125,255,${opacity})`;
+
+        const path = curvePath(c.from, c.to);
+
         return (
-          <line
-            key={`conn-${index}`}
-            x1={connection.from.x}
-            y1={connection.from.y}
-            x2={connection.to.x}
-            y2={connection.to.y}
-            stroke={color}
-            strokeWidth={thickness}
-            strokeOpacity={opacity}
-          />
+          <g key={`conn-${i}`}>
+            <path
+              d={path}
+              stroke={color}
+              strokeWidth={strokeWidth + 1.6}
+              fill="none"
+              opacity={0.18}
+            />
+            <path
+              d={path}
+              stroke={color}
+              strokeWidth={strokeWidth}
+              fill="none"
+              strokeLinecap="round"
+            />
+          </g>
         );
       })}
-      {hidden1Positions.map((pos, index) => (
-        <circle key={`h1-${index}`} cx={pos.x} cy={pos.y} r={4} fill="#1f2430" />
+
+      {/* Nodes */}
+      {h1.map((p, i) => (
+        <circle key={`h1-${i}`} cx={p.x} cy={p.y} r={4} fill="#1f2430" />
       ))}
-      {hidden2Positions.map((pos, index) => (
-        <circle key={`h2-${index}`} cx={pos.x} cy={pos.y} r={4} fill="#1f2430" />
+      {h2.map((p, i) => (
+        <circle key={`h2-${i}`} cx={p.x} cy={p.y} r={4} fill="#1f2430" />
       ))}
-      {outputPositions.map((pos, index) => (
-        <circle key={`out-${index}`} cx={pos.x} cy={pos.y} r={5} fill="#1f2430" />
+      {out.map((p, i) => (
+        <circle key={`out-${i}`} cx={p.x} cy={p.y} r={5} fill="#1f2430" />
       ))}
     </svg>
   );
 };
 
-export default ConnectionView;
+export default React.memo(ConnectionView);
