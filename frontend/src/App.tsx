@@ -14,9 +14,6 @@ import Network3D from "./components/Network3D";
 import TrainingMode from "./components/training/TrainingMode";
 import { useTrainingSocket, TrainingConfig } from "./hooks/useTrainingSocket";
 
-/* =====================================================
-   Config
-
 const API_BASE =
   import.meta.env.VITE_API_BASE ?? "http://localhost:8000";
 
@@ -30,9 +27,6 @@ const OUTPUT_ALPHA = 0.18;
 const CONFIDENCE_THRESHOLD = 0.75;
 const STABLE_FRAMES = 6;
 
-/* =====================================================
-   Default Training Config
-
 const DEFAULT_TRAINING_CONFIG: TrainingConfig = {
   learningRate: 0.001,
   batchSize: 128,
@@ -43,9 +37,6 @@ const DEFAULT_TRAINING_CONFIG: TrainingConfig = {
   initializer: "glorot_uniform",
   dropout: 0,
 };
-
-/* =====================================================
-   Helpers
 
 const smooth = (
   prev: number[],
@@ -66,9 +57,6 @@ const normalize = (layer: number[]): number[] => {
   return layer.map((v) => v / max);
 };
 
-/* =====================================================
-   Types
-
 type Explanation = {
   prediction: number;
   confidence: number;
@@ -78,9 +66,6 @@ type Explanation = {
     contribution: number;
   }>;
 };
-
-/* =====================================================
-   App
 
 const App: React.FC = () => {
   /* ---------------- mode ---------------- */
