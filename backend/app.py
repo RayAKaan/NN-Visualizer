@@ -34,4 +34,4 @@ app.include_router(train_ws_router)
 
 @app.on_event("startup")
 def load_model_on_startup() -> None:
-    inference_engine.load()
+    inference_engine.load_all()

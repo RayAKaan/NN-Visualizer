@@ -10,11 +10,12 @@ router = APIRouter()
 
 class PixelInput(BaseModel):
     pixels: list[float]
+    model_type: str | None = None
 
 
 @router.post("/state")
 def state(data: PixelInput) -> dict:
     try:
-        return inference_engine.get_state(data.pixels)
+        return inference_engine.get_state(data.pixels, model_type=data.model_type)
     except (RuntimeError, ValueError) as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc

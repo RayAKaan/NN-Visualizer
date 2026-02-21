@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { ModelInfo } from "../types";
 
-export function useModelInfo(apiBase: string) {
+export function useModelInfo(apiBase: string, modelType?: string) {
   const [modelInfo, setModelInfo] = useState<ModelInfo | null>(null);
 
   useEffect(() => {
-    fetch(`${apiBase}/model/info`)
+    const query = modelType ? `?type=${modelType}` : "";
+    fetch(`${apiBase}/model/info${query}`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data) {
@@ -13,7 +14,7 @@ export function useModelInfo(apiBase: string) {
         }
       })
       .catch(() => setModelInfo(null));
-  }, [apiBase]);
+  }, [apiBase, modelType]);
 
   return modelInfo;
 }

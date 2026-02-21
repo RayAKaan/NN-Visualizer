@@ -1,8 +1,8 @@
 import { useCallback, useRef, useState } from "react";
-import { NeuralState, PredictionResult } from "../types";
+import { AnyPredictionResult, ModelType, NeuralState } from "../types";
 
 export function usePrediction(apiBase: string) {
-  const [result, setResult] = useState<PredictionResult | null>(null);
+  const [result, setResult] = useState<AnyPredictionResult | null>(null);
   const [state3D, setState3D] = useState<NeuralState | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -10,7 +10,7 @@ export function usePrediction(apiBase: string) {
   const debounceRef = useRef<number>(0);
 
   const predict = useCallback(
-    (pixels: number[]) => {
+    (pixels: number[], modelType: ModelType = "ann") => {
       window.clearTimeout(debounceRef.current);
       debounceRef.current = window.setTimeout(async () => {
         const start = performance.now();
@@ -21,19 +21,19 @@ export function usePrediction(apiBase: string) {
             fetch(`${apiBase}/predict`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ pixels }),
+              body: JSON.stringify({ pixels, model_type: modelType }),
             }),
             fetch(`${apiBase}/state`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ pixels }),
+              body: JSON.stringify({ pixels, model_type: modelType }),
             }),
           ]);
 
           if (!predictRes.ok) throw new Error(`Predict failed: HTTP ${predictRes.status}`);
           if (!stateRes.ok) throw new Error(`State failed: HTTP ${stateRes.status}`);
 
-          setResult((await predictRes.json()) as PredictionResult);
+          setResult((await predictRes.json()) as AnyPredictionResult);
           setState3D((await stateRes.json()) as NeuralState);
           setInferenceTime(performance.now() - start);
         } catch (err) {
