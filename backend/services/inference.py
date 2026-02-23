@@ -7,9 +7,6 @@ import numpy as np
 import tensorflow as tf
 
 import config
-from model.ann_model import build_ann_model
-from model.cnn_model import build_cnn_model
-from model.rnn_model import build_rnn_model
 
 
 class InferenceCache:
@@ -49,28 +46,18 @@ class InferenceEngine:
         self._cache = InferenceCache(maxsize=32)
 
     def load_all(self):
-        fallback_builders = {
-            "ann": build_ann_model,
-            "cnn": build_cnn_model,
-            "rnn": build_rnn_model,
-        }
         for model_type, path in config.MODEL_PATHS.items():
             if os.path.exists(path):
                 self._load_model(model_type, path)
                 print(f"Loaded {model_type} model from {path}")
             else:
-                print(f"WARNING: {model_type} model not found at {path}; using untrained fallback model")
-                model = fallback_builders[model_type]()
-                self._register_model(model_type, model)
+                print(f"WARNING: {model_type} model not found at {path}")
         if self.models:
             self.active_model_type = "ann" if "ann" in self.models else list(self.models.keys())[0]
             self.loaded = True
 
     def _load_model(self, model_type, path):
         model = tf.keras.models.load_model(path)
-        self._register_model(model_type, model)
-
-    def _register_model(self, model_type: str, model: tf.keras.Model):
         dummy = np.zeros((1,) + config.MODEL_INPUT_SHAPES[model_type])
         model.predict(dummy, verbose=0)
         outputs = [l.output for l in model.layers if not isinstance(l, tf.keras.layers.InputLayer)]
