@@ -1,4 +1,28 @@
 import React from "react";
-export default function LayerLabel3D(_props: any) {
-  return <div className="stub-placeholder"><span style={{fontSize:32}}>🏷️</span><span>Layer Label 3D</span><span className="stub-badge">Coming in Phase 2</span></div>;
+import { Html } from "@react-three/drei";
+
+interface Props {
+  position: [number, number, number];
+  text: string;
+}
+
+export default function LayerLabel3D({ position, text }: Props) {
+  return (
+    <Html
+      position={position}
+      center
+      style={{
+        color: "#94a3b8",
+        fontSize: 11,
+        fontFamily: "'JetBrains Mono', monospace",
+        fontWeight: 600,
+        whiteSpace: "nowrap",
+        userSelect: "none",
+        pointerEvents: "none",
+        textShadow: "0 0 8px rgba(0,0,0,0.8)",
+      }}
+    >
+      {text}
+    </Html>
+  );
 }
