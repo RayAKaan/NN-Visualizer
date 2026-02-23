@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { BatchUpdate, EpochUpdate, TrainingMessage, TrainingMetrics, TrainingStatus } from "../types";
 
 export function useTrainingSocket() {
@@ -8,19 +8,11 @@ export function useTrainingSocket() {
   const [metrics, setMetrics] = useState<TrainingMetrics>({ losses: [], accuracies: [], gradientNorms: [], learningRates: [], valLosses: [], valAccuracies: [], epochBoundaries: [], precisionHistory: [], recallHistory: [], f1History: [], confusionMatrices: [] });
   const wsRef = useRef<WebSocket | null>(null);
 
-  const connect = useCallback(() => {
-    const existing = wsRef.current;
-    if (existing && (existing.readyState === WebSocket.OPEN || existing.readyState === WebSocket.CONNECTING)) {
-      return;
-    }
-
+  const connect = () => {
     const ws = new WebSocket("ws://localhost:8000/train");
     wsRef.current = ws;
     ws.onopen = () => setConnected(true);
-    ws.onclose = () => {
-      setConnected(false);
-      if (wsRef.current === ws) wsRef.current = null;
-    };
+    ws.onclose = () => setConnected(false);
     ws.onmessage = (e) => {
       const msg = JSON.parse(e.data) as TrainingMessage;
       setMessages((m) => [...m, msg]);
@@ -34,7 +26,7 @@ export function useTrainingSocket() {
       if ((msg as { type: string }).type === "training_complete") setStatus("completed");
       if ((msg as { type: string }).type === "training_error") setStatus("error");
     };
-  }, []);
+  };
 
   const send = (command: string, config?: unknown) => wsRef.current?.send(JSON.stringify({ command, config }));
   const api = useMemo(() => ({ configure: (c: unknown) => send("configure", c), start: () => { setStatus("running"); send("start"); }, pause: () => { setStatus("paused"); send("pause"); }, resume: () => { setStatus("running"); send("resume"); }, stop: () => { setStatus("stopping"); send("stop"); }, stepBatch: () => send("step_batch"), stepEpoch: () => send("step_epoch"), getStatus: () => send("get_status") }), []);
