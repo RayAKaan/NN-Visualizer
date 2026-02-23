@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { PredictionResult } from "../../types";
 import NeuronGrid from "../prediction/NeuronGrid";
 import ActivationLegend from "./ActivationLegend";
 import ConnectionLines from "./ConnectionLines";
@@ -32,7 +33,7 @@ export default function NetworkView2D({ state, weights, pixels = [], hidden1 = [
   const pred = Number.isFinite(prediction) ? prediction : state?.prediction ?? 0;
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const [dims, setDims] = useState({ width: 800, height: 420 });
+  const [dims, setDims] = useState({ width: 800, height: 400 });
 
   useEffect(() => {
     const el = containerRef.current;
@@ -44,15 +45,9 @@ export default function NetworkView2D({ state, weights, pixels = [], hidden1 = [
     return () => obs.disconnect();
   }, []);
 
-  const signalStrength = useMemo(() => {
-    const arr = [...h1.slice(0, 16), ...h2.slice(0, 16), ...h3.slice(0, 16), ...probs];
-    if (!arr.length) return 0;
-    return arr.reduce((a, b) => a + Math.max(0, b), 0) / arr.length;
-  }, [h1, h2, h3, probs]);
-
   return (
-    <div className="network-2d" ref={containerRef} style={{ position: "relative", minHeight: 460, height: "100%", overflow: "hidden" }}>
-      <div className="network-2d-layers" style={{ position: "relative", zIndex: 2 }}>
+    <div className="network-2d" ref={containerRef}>
+      <div className="network-2d-layers">
         <InputHeatmap pixels={p} />
         <FlowArrow label="Dense" />
         <div className="layer-block" data-highlight="hidden1"><NeuronGrid values={h1.slice(0, 256)} highlightId="hidden1" /><span className="layer-label">Hidden 1 (256) · ReLU</span></div>
@@ -65,9 +60,6 @@ export default function NetworkView2D({ state, weights, pixels = [], hidden1 = [
       </div>
 
       <ConnectionLines hidden1={h1} hidden2={h2} hidden3={h3} probabilities={probs} weights={weights} width={dims.width} height={dims.height} />
-      <div style={{ position: "absolute", top: 8, right: 10, zIndex: 3, fontSize: 11, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
-        Signal: {(signalStrength * 100).toFixed(1)}%
-      </div>
       <ActivationLegend />
     </div>
   );
