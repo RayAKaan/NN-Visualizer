@@ -1,4 +1,4 @@
-# Neural Network Visualizer
+# Neurofluxion
 
 Interactive system for exploring ANN, CNN, and RNN/LSTM models on MNIST with prediction, model comparison, and training telemetry.
 

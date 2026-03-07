@@ -1,64 +1,202 @@
-import React from "react";
-import { OrbitControls } from "@react-three/drei";
-import { Canvas } from "@react-three/fiber";
-import { Edge } from "../../types";
-import EdgeBundle3D from "./EdgeBundle3D";
-import LayerLabel3D from "./LayerLabel3D";
-import NeuronLayer3D from "./NeuronLayer3D";
+import React, { useMemo, useRef } from "react";
+import { Canvas, useFrame } from "@react-three/fiber";
+import { Line, OrbitControls, Text } from "@react-three/drei";
+import * as THREE from "three";
+import { LayerInfo } from "../../types";
 
 interface Props {
-  hidden1?: number[];
-  hidden2?: number[];
-  hidden3?: number[];
-  output?: number[];
-  prediction?: number;
-  edgesH1H2?: Edge[];
-  edgesH2H3?: Edge[];
-  edgesH3Out?: Edge[];
-  state?: any;
+  layers: LayerInfo[];
 }
 
-export default function Network3D({ hidden1 = [], hidden2 = [], hidden3 = [], output = [], prediction = 0, edgesH1H2 = [], edgesH2H3 = [], edgesH3Out = [], state = null }: Props) {
-  const h1 = hidden1.length ? hidden1 : state?.layers?.hidden1 ?? [];
-  const h2 = hidden2.length ? hidden2 : state?.layers?.hidden2 ?? [];
-  const h3 = hidden3.length ? hidden3 : state?.layers?.hidden3 ?? [];
-  const out = output.length ? output : state?.probabilities ?? Array(10).fill(0);
-  const pred = Number.isFinite(prediction) ? prediction : state?.prediction ?? 0;
+interface NodePoint3D {
+  id: string;
+  layerIdx: number;
+  nodeIdx: number;
+  position: [number, number, number];
+  activation: number;
+}
 
-  let e12 = edgesH1H2;
-  let e23 = edgesH2H3;
-  let e3o = edgesH3Out;
-  if ((!e12.length || !e23.length || !e3o.length) && state?.edges?.length) {
-    const edges = state.edges;
-    e12 = edges.filter((e: Edge) => e.from < 256 && e.to < 128);
-    e23 = edges.filter((e: Edge) => e.from < 128 && e.to < 64);
-    e3o = edges.filter((e: Edge) => e.from < 64 && e.to < 10);
-  }
+const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+const MAX_NODES_PER_LAYER = 20;
+
+function Neuron({ position, activation }: { position: [number, number, number]; activation: number }) {
+  const ref = useRef<THREE.Mesh>(null);
+  const a = clamp01(activation);
+  const color = useMemo(() => new THREE.Color().setHSL(0.52 - a * 0.2, 0.95, 0.3 + a * 0.35), [a]);
+
+  useFrame(() => {
+    if (!ref.current) return;
+    ref.current.scale.setScalar(0.9 + a * 0.55);
+  });
 
   return (
-    <div className="network-3d-container">
-      <Canvas camera={{ position: [0, 3, 16], fov: 50 }} style={{ height: "100%", background: "#0a0e17" }}>
-        <ambientLight intensity={0.3} />
-        <pointLight position={[10, 8, 10]} intensity={1.0} />
-        <pointLight position={[-5, -3, 5]} intensity={0.3} color="#8b5cf6" />
-        <fog attach="fog" args={["#0a0e17", 14, 30]} />
-        <gridHelper args={[20, 20, "#1a2035", "#1a2035"]} position={[0, -6, 0]} />
+    <mesh ref={ref} position={position}>
+      <sphereGeometry args={[0.24, 20, 20]} />
+      <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.2 + a * 1.4} />
+    </mesh>
+  );
+}
 
-        <LayerLabel3D position={[0, 5, -5]} text="Hidden 1 (256)" />
-        <LayerLabel3D position={[0, 3.5, -1.5]} text="Hidden 2 (128)" />
-        <LayerLabel3D position={[0, 3, 2]} text="Hidden 3 (64)" />
-        <LayerLabel3D position={[0, 2, 5.5]} text="Output (10)" />
+function ConnectionCurve({
+  a,
+  b,
+  strength,
+}: {
+  a: [number, number, number];
+  b: [number, number, number];
+  strength: number;
+}) {
+  const points = useMemo(() => {
+    const p0 = new THREE.Vector3(a[0], a[1], a[2]);
+    const p2 = new THREE.Vector3(b[0], b[1], b[2]);
+    const mid = p0.clone().add(p2).multiplyScalar(0.5);
+    const dir = p2.clone().sub(p0);
+    const normal = new THREE.Vector3(0, 1, 0)
+      .cross(dir.clone().normalize())
+      .normalize();
+    const bend = 0.08 + strength * 0.22;
+    const p1 = mid
+      .clone()
+      .add(normal.multiplyScalar(bend));
 
-        <NeuronLayer3D z={-5} activations={h1} columns={16} />
-        <NeuronLayer3D z={-1.5} activations={h2} columns={16} />
-        <NeuronLayer3D z={2} activations={h3} columns={8} />
-        <NeuronLayer3D z={5.5} activations={out} columns={10} isOutput prediction={pred} />
+    const curve = new THREE.QuadraticBezierCurve3(p0, p1, p2);
+    return curve.getPoints(18);
+  }, [a, b, strength]);
 
-        <EdgeBundle3D sourceZ={-5} targetZ={-1.5} edges={e12} sourceCount={256} targetCount={128} sourceColumns={16} targetColumns={16} />
-        <EdgeBundle3D sourceZ={-1.5} targetZ={2} edges={e23} sourceCount={128} targetCount={64} sourceColumns={16} targetColumns={8} />
-        <EdgeBundle3D sourceZ={2} targetZ={5.5} edges={e3o} sourceCount={64} targetCount={10} sourceColumns={8} targetColumns={10} />
+  return (
+    <>
+      <Line
+        points={points}
+        color="#06b6d4"
+        transparent
+        opacity={0.04 + strength * 0.16}
+        lineWidth={2}
+      />
+      <Line
+        points={points}
+        color={strength > 0.45 ? "#67e8f9" : "#334155"}
+        transparent
+        opacity={0.07 + strength * 0.5}
+        lineWidth={1}
+      />
+    </>
+  );
+}
 
-        <OrbitControls enableDamping dampingFactor={0.05} minDistance={6} maxDistance={28} enablePan maxPolarAngle={Math.PI * 0.85} />
+export default function Network3D({ layers }: Props) {
+  const fixedCountsRef = useRef<Map<number, number>>(new Map());
+
+  const graph = useMemo(() => {
+    const activeLayers = layers.filter((l) => Array.isArray(l.activations) || typeof l.activations === "number");
+    const nodes: NodePoint3D[] = [];
+    const labels: Array<{ x: number; name: string; type: string }> = [];
+
+    if (activeLayers.length === 0) return { nodes, labels };
+
+    const startX = -((activeLayers.length - 1) * 3.2) / 2;
+    activeLayers.forEach((layer, layerIdx) => {
+      const rawActs =
+        Array.isArray(layer.activations)
+          ? layer.activations.map((v) => (typeof v === "number" ? v : 0))
+          : typeof layer.activations === "number"
+            ? [layer.activations]
+            : [];
+      const proposed = Math.min(Math.max(rawActs.length, 1), MAX_NODES_PER_LAYER);
+      const existing = fixedCountsRef.current.get(layerIdx);
+      const count = existing == null ? proposed : Math.min(MAX_NODES_PER_LAYER, Math.max(existing, proposed));
+      if (existing == null || count !== existing) {
+        fixedCountsRef.current.set(layerIdx, count);
+      }
+      const sampled =
+        count === rawActs.length || rawActs.length === 0
+          ? Array.from({ length: count }, (_, i) => rawActs[i] ?? 0)
+          : Array.from({ length: count }, (_, i) => {
+              const src = Math.floor((i / count) * rawActs.length);
+              return rawActs[src] ?? 0;
+            });
+
+      const x = startX + layerIdx * 3.2;
+      labels.push({ x, name: layer.name, type: layer.type });
+      sampled.forEach((act, nodeIdx) => {
+        const cols = Math.ceil(Math.sqrt(count));
+        const rows = Math.ceil(count / cols);
+        const row = Math.floor(nodeIdx / cols);
+        const col = nodeIdx % cols;
+        const spacing = 0.75;
+        const y = (row - (rows - 1) / 2) * spacing;
+        const z = (col - (cols - 1) / 2) * spacing;
+        nodes.push({
+          id: `${layerIdx}-${nodeIdx}`,
+          layerIdx,
+          nodeIdx,
+          position: [x, y, z],
+          activation: clamp01(act),
+        });
+      });
+    });
+
+    return { nodes, labels };
+  }, [layers]);
+
+  const nodesByLayer = useMemo(() => {
+    const m = new Map<number, NodePoint3D[]>();
+    graph.nodes.forEach((n) => {
+      const list = m.get(n.layerIdx) ?? [];
+      list.push(n);
+      m.set(n.layerIdx, list);
+    });
+    return m;
+  }, [graph.nodes]);
+
+  return (
+    <div className="w-full h-full rounded-lg bg-gradient-to-br from-slate-950 via-slate-900 to-cyan-950">
+      <Canvas camera={{ position: [0, 0, 12], fov: 55 }}>
+        <ambientLight intensity={0.5} />
+        <pointLight position={[6, 6, 8]} intensity={1.4} />
+        <pointLight position={[-6, -6, 8]} intensity={0.8} color="#67e8f9" />
+        <OrbitControls enablePan={false} />
+
+        {graph.labels.map((label) => (
+          <group key={`${label.x}-${label.name}`}>
+            <Text position={[label.x, 4.2, 0]} fontSize={0.24} color="#a5f3fc">
+              {label.name}
+            </Text>
+            <Text position={[label.x, 3.85, 0]} fontSize={0.16} color="#94a3b8">
+              {label.type}
+            </Text>
+          </group>
+        ))}
+
+        {graph.nodes.map((node) => (
+          <Neuron key={node.id} position={node.position} activation={node.activation} />
+        ))}
+
+        {Array.from(nodesByLayer.keys())
+          .sort((a, b) => a - b)
+          .map((layerIdx) => {
+            const src = nodesByLayer.get(layerIdx) ?? [];
+            const dst = nodesByLayer.get(layerIdx + 1) ?? [];
+            if (dst.length === 0) return null;
+
+            return (
+              <group key={`edges-${layerIdx}`}>
+                {src.map((a) =>
+                  dst.map((b) => {
+                    const strength = clamp01(a.activation * 0.6 + b.activation * 0.4);
+                    if (strength < 0.03) return null;
+                    return (
+                      <ConnectionCurve
+                        key={`${a.id}-${b.id}`}
+                        a={a.position}
+                        b={b.position}
+                        strength={strength}
+                      />
+                    );
+                  }),
+                )}
+              </group>
+            );
+          })}
       </Canvas>
     </div>
   );

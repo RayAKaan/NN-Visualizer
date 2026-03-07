@@ -41,6 +41,8 @@ class TrainingManager:
         self._stop_flag = threading.Event()
         self.batch_history = []
         self.epoch_history = []
+        self._active_model = None
+        self._active_model_type = None
 
     def configure(self, cfg: dict):
         self.config = TrainingConfig(**{**asdict(self.config), **cfg})
@@ -126,6 +128,8 @@ class TrainingManager:
                 kwargs.update(dropout_rate=self.config.dropout_rate, lstm_units=self.config.lstm_units,
                               bidirectional=self.config.bidirectional)
             model = MODEL_BUILDERS[self.config.model_type](**kwargs)
+            self._active_model = model
+            self._active_model_type = self.config.model_type
             opt = self._build_optimizer()
             loss_fn = tf.keras.losses.SparseCategoricalCrossentropy()
 
@@ -192,6 +196,26 @@ class TrainingManager:
         except Exception as exc:
             self.status = "error"
             self._emit({"type": "training_error", "error": str(exc)})
+
+    def save_model(self, model_type: str):
+        if self.status == "running":
+            raise ValueError("Cannot save while training is running. Pause or stop training first.")
+        if model_type not in config.MODEL_PATHS:
+            raise ValueError(f"Unsupported model type: {model_type}")
+        if self._active_model is None or self._active_model_type is None:
+            raise ValueError("No trained model available in memory to save.")
+        if self._active_model_type != model_type:
+            raise ValueError(
+                f"Latest trained model is '{self._active_model_type}', not '{model_type}'. Train the selected model type first."
+            )
+
+        path = config.MODEL_PATHS[model_type]
+        self._active_model.save(path)
+        return {
+            "saved": True,
+            "model_type": model_type,
+            "path": path,
+        }
 
     def get_status(self):
         return {

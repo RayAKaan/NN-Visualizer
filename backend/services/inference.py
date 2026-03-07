@@ -235,5 +235,66 @@ class InferenceEngine:
         self.active_model_type = model_type
         self._cache.clear()
 
+    def get_models_registry(self):
+        registry = []
+        for model_type, path in config.MODEL_PATHS.items():
+            exists = os.path.exists(path)
+            loaded = model_type in self.models
+            registry.append(
+                {
+                    "model_type": model_type,
+                    "path": path,
+                    "exists_on_disk": exists,
+                    "loaded": loaded,
+                    "active": self.active_model_type == model_type and loaded,
+                }
+            )
+        return registry
+
+    def delete_model(self, model_type: str):
+        if model_type not in config.MODEL_PATHS:
+            raise ValueError(f"Unsupported model type: {model_type}")
+
+        path = config.MODEL_PATHS[model_type]
+        deleted_file = False
+        if os.path.exists(path):
+            os.remove(path)
+            deleted_file = True
+
+        self.models.pop(model_type, None)
+        self.activation_models.pop(model_type, None)
+        self.weights_cache.pop(model_type, None)
+        self._cache.clear()
+
+        available = self.get_available_models()
+        if self.active_model_type == model_type:
+            if available:
+                self.active_model_type = "ann" if "ann" in available else available[0]
+            else:
+                self.active_model_type = "ann"
+        self.loaded = bool(available)
+
+        return {
+            "deleted": deleted_file,
+            "model_type": model_type,
+            "available": available,
+            "active": self.active_model_type if available else None,
+        }
+
+    def reload_model(self, model_type: str):
+        if model_type not in config.MODEL_PATHS:
+            raise ValueError(f"Unsupported model type: {model_type}")
+        path = config.MODEL_PATHS[model_type]
+        if not os.path.exists(path):
+            raise ValueError(f"Model file not found at {path}")
+        self._load_model(model_type, path)
+        self.loaded = True
+        return {
+            "reloaded": True,
+            "model_type": model_type,
+            "active": self.active_model_type,
+            "available": self.get_available_models(),
+        }
+
 
 inference_engine = InferenceEngine()

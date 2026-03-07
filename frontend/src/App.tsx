@@ -1,57 +1,141 @@
-import { useState, useEffect, useCallback } from "react";
-import TopBar from "./components/layout/TopBar";
-import StatusBar from "./components/layout/StatusBar";
-import PredictionMode from "./components/prediction/PredictionMode";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import TrainingMode from "./components/training/TrainingMode";
-import PresentationMode from "./components/presentation/PresentationMode";
-import ShortcutHelp from "./components/ui/ShortcutHelp";
-import ErrorBanner from "./components/ui/ErrorBanner";
-import { useModelInfo } from "./hooks/useModelInfo";
-import { useHealthCheck } from "./hooks/useHealthCheck";
-import { AppMode, ViewMode } from "./types";
+import ModelsMode from "./components/models/ModelsMode";
+import NeurofluxionLayout from "./components/neurofluxion/NeurofluxionLayout";
+import { Brain, LineChart, AlertTriangle, CheckCircle2, Database, FlaskConical, Moon, Sun } from "lucide-react";
+import { apiClient } from "./api/client";
 
 export default function App() {
-  const [mode, setMode] = useState<AppMode>("predict");
-  const [view, setView] = useState<ViewMode>("2d");
-  const { info, available, switchModel } = useModelInfo();
-  const { backendOnline, retryCount, check } = useHealthCheck();
-  const [presentationActive, setPresentationActive] = useState(false);
-  const [shortcutHelpVisible, setShortcutHelpVisible] = useState(false);
-  const [clearSignal, setClearSignal] = useState(0);
-  const [sampleLoadSignal, setSampleLoadSignal] = useState<number | null>(null);
-  const [trainingToggleSignal, setTrainingToggleSignal] = useState(0);
-
-  const handlePresentationAction = useCallback((action: string) => {
-    if (action === "switchTo3D") { setView("3d"); setMode("predict"); }
-    if (action === "switchToCNN" && available.available.includes("cnn")) switchModel("cnn");
-    if (action === "switchToRNN" && available.available.includes("rnn")) switchModel("rnn");
-    if (action === "switchToCompare") { setView("compare"); setMode("predict"); }
-    if (action === "switchToTraining") setMode("train");
-    if (action === "switchToPredict") { setMode("predict"); setView("2d"); }
-  }, [available, switchModel]);
+  const [mode, setMode] = useState<"train" | "models" | "lab">("lab");
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [isBootstrapping, setIsBootstrapping] = useState(true);
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [activeModel, setActiveModel] = useState<string | null>(null);
+  const [startupError, setStartupError] = useState<string | null>(null);
 
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement).tagName;
-      if (["INPUT", "SELECT", "TEXTAREA"].includes(tag) || presentationActive) return;
-      switch (e.key.toLowerCase()) {
-        case "c": setClearSignal((p) => p + 1); break; case "d": setView("2d"); break; case "t": setView("3d"); break;
-        case "k": setView("compare"); break; case "m": { const models = available.available; if (models.length >= 2) { const idx = models.indexOf(available.active); switchModel(models[(idx + 1) % models.length]); } break; }
-        case "p": setPresentationActive(true); break; case " ": if (mode === "train") { e.preventDefault(); setTrainingToggleSignal((p) => p + 1); } break;
-        case "?": e.preventDefault(); setShortcutHelpVisible(true); break; case "escape": setShortcutHelpVisible(false); setPresentationActive(false); break;
+    const stored = window.localStorage.getItem("nv-theme");
+    if (stored === "light" || stored === "dark") {
+      setTheme(stored);
+    }
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem("nv-theme", theme);
+    document.documentElement.classList.toggle("light", theme === "light");
+    document.documentElement.classList.toggle("dark", theme === "dark");
+  }, [theme]);
+
+  useEffect(() => {
+    let mounted = true;
+    const bootstrap = async () => {
+      try {
+        const res = await apiClient.get("/models/available");
+        const models: string[] = Array.isArray(res.data?.available) ? res.data.available : [];
+        const active: string | null = typeof res.data?.active === "string" ? res.data.active : null;
+        if (!mounted) return;
+        setAvailableModels(models);
+        setActiveModel(active);
+      } catch {
+        if (!mounted) return;
+        setStartupError("Could not fetch model availability.");
+      } finally {
+        if (mounted) setIsBootstrapping(false);
       }
-      if (e.key >= "0" && e.key <= "9" && mode === "predict") setSampleLoadSignal(parseInt(e.key));
     };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [presentationActive, mode, available, switchModel]);
+    void bootstrap();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
-  useEffect(() => { if (sampleLoadSignal !== null) { const t = setTimeout(() => setSampleLoadSignal(null), 100); return () => clearTimeout(t); } }, [sampleLoadSignal]);
+  const hasSavedModels = useMemo(() => availableModels.length > 0, [availableModels]);
 
-  return <div className="app-layout"><TopBar mode={mode} onModeChange={setMode} view={view} onViewChange={setView} activeModel={available.active} availableModels={available.available} onModelSwitch={switchModel} modelInfo={info} onPresentationStart={() => setPresentationActive(true)} backendOnline={backendOnline} />
-    {!backendOnline && <div style={{ padding: "0 16px" }}><ErrorBanner message="Backend not responding. Run: uvicorn app:app --port 8000" type="error" onRetry={check} retryCount={retryCount} /></div>}
-    <div className="main-content">{mode === "predict" ? <PredictionMode view={view} activeModel={available.active} availableModels={available.available} clearSignal={clearSignal} sampleLoadSignal={sampleLoadSignal} /> : <TrainingMode trainingToggleSignal={trainingToggleSignal} availableModels={available.available} />}</div>
-    <StatusBar activeModel={available.active} backendOnline={backendOnline} />
-    <PresentationMode active={presentationActive} onExit={() => setPresentationActive(false)} onAction={handlePresentationAction} />
-    <ShortcutHelp visible={shortcutHelpVisible} onClose={() => setShortcutHelpVisible(false)} /></div>;
+  const onModelsChanged = useCallback(
+    (available: string[], active: string | null) => {
+      setAvailableModels((prev) => (prev.join("|") === available.join("|") ? prev : available));
+      setActiveModel((prev) => (prev === active ? prev : active));
+    },
+    [],
+  );
+
+  return (
+    <div className={`app-shell ${theme === "light" ? "theme-light" : "theme-dark"} flex flex-col h-screen bg-slate-950 text-slate-100 font-sans overflow-hidden`}>
+      <header className="h-16 bg-slate-900 border-b border-slate-800 shrink-0">
+        <div className="h-full px-4 md:px-6 max-w-[1800px] mx-auto flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 bg-cyan-600 rounded-lg flex items-center justify-center shrink-0">
+              <Brain className="text-white" size={20} />
+            </div>
+            <h1 className="font-bold text-lg tracking-tight truncate">Neurofluxion</h1>
+          </div>
+
+          <div className="flex items-center gap-2 md:gap-3">
+            <nav className="flex gap-1.5 md:gap-2 rounded-xl bg-slate-950/50 border border-slate-700 px-1.5 py-1">
+              <button
+                onClick={() => setMode("lab")}
+                className={`px-3 md:px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2
+                 ${mode === "lab" ? "bg-cyan-600/20 text-cyan-400 border border-cyan-600/50" : "text-slate-400 hover:text-white"}`}
+                title="Open Neurofluxion lab"
+              >
+                <FlaskConical size={16} /> <span className="hidden sm:inline">Lab</span>
+              </button>
+              <button
+                onClick={() => setMode("train")}
+                className={`px-3 md:px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2
+                 ${mode === "train" ? "bg-cyan-600/20 text-cyan-400 border border-cyan-600/50" : "text-slate-400 hover:text-white"}`}
+              >
+                <LineChart size={16} /> <span className="hidden sm:inline">Training</span>
+              </button>
+              <button
+                onClick={() => setMode("models")}
+                className={`px-3 md:px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2
+                 ${mode === "models" ? "bg-cyan-600/20 text-cyan-400 border border-cyan-600/50" : "text-slate-400 hover:text-white"}`}
+              >
+                <Database size={16} /> <span className="hidden sm:inline">Models</span>
+              </button>
+            </nav>
+
+            <button
+              onClick={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
+              className="h-10 px-3 rounded-xl border border-slate-700 bg-slate-950/60 text-slate-200 hover:text-cyan-300 hover:border-cyan-700 transition-colors flex items-center gap-2"
+              title={`Switch to ${theme === "dark" ? "Light" : "Dark"} mode`}
+              aria-label={`Switch to ${theme === "dark" ? "Light" : "Dark"} mode`}
+            >
+              {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+              <span className="hidden md:inline text-sm">{theme === "dark" ? "Light" : "Dark"}</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div
+        className={`border-b text-sm ${hasSavedModels ? "bg-emerald-950/40 border-emerald-900 text-emerald-300" : "bg-amber-950/40 border-amber-900 text-amber-300"}`}
+      >
+        <div className="px-4 md:px-6 max-w-[1800px] mx-auto py-2 flex items-center gap-2">
+          {hasSavedModels ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+          {isBootstrapping
+            ? "Checking saved models..."
+            : hasSavedModels
+              ? `Saved models detected (${availableModels.join(", ")}). Active: ${activeModel ?? "n/a"}. Lab is set as your primary real-time workspace.`
+              : "No saved models found yet. Use Lab or Training to train models in real time."}
+        </div>
+      </div>
+      {startupError && (
+        <div className="text-xs bg-rose-950/40 border-b border-rose-900 text-rose-300">
+          <div className="px-4 md:px-6 max-w-[1800px] mx-auto py-2">{startupError}</div>
+        </div>
+      )}
+
+      <main className="flex-1 overflow-auto">
+        <div className={`h-full ${mode === "lab" ? "w-full" : "max-w-[1800px] mx-auto"}`}>
+          {mode === "train" ? (
+            <TrainingMode />
+          ) : (
+            mode === "models" ? <ModelsMode onModelsChanged={onModelsChanged} /> : <NeurofluxionLayout />
+          )}
+        </div>
+      </main>
+    </div>
+  );
 }
