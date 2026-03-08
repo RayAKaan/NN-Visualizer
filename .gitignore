@@ -1,6 +1,5 @@
 __pycache__/
 *.pyc
-*.h5
 *.keras
 .venv/
 node_modules/

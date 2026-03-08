@@ -2,22 +2,33 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import TrainingMode from "./components/training/TrainingMode";
 import ModelsMode from "./components/models/ModelsMode";
 import NeurofluxionLayout from "./components/neurofluxion/NeurofluxionLayout";
-import { Brain, LineChart, AlertTriangle, CheckCircle2, Database, FlaskConical, Moon, Sun } from "lucide-react";
+import PredictionMode from "./components/prediction/PredictionMode";
 import { apiClient } from "./api/client";
+import { Activity, Brain, Command, Database, FlaskConical, LineChart, Moon, Search, Settings, Sun, ScanEye } from "lucide-react";
+
+type AppMode = "predict" | "train" | "models" | "lab";
+type ThemeMode = "dark" | "light";
+
+interface CommandItem {
+  id: string;
+  label: string;
+  group: "Actions" | "Navigation" | "Models" | "Settings";
+  run: () => void;
+}
 
 export default function App() {
-  const [mode, setMode] = useState<"train" | "models" | "lab">("lab");
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [mode, setMode] = useState<AppMode>("lab");
+  const [theme, setTheme] = useState<ThemeMode>("dark");
   const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [activeModel, setActiveModel] = useState<string | null>(null);
   const [startupError, setStartupError] = useState<string | null>(null);
+  const [isPaletteOpen, setIsPaletteOpen] = useState(false);
+  const [paletteQuery, setPaletteQuery] = useState("");
 
   useEffect(() => {
     const stored = window.localStorage.getItem("nv-theme");
-    if (stored === "light" || stored === "dark") {
-      setTheme(stored);
-    }
+    if (stored === "light" || stored === "dark") setTheme(stored);
   }, []);
 
   useEffect(() => {
@@ -49,93 +60,149 @@ export default function App() {
     };
   }, []);
 
-  const hasSavedModels = useMemo(() => availableModels.length > 0, [availableModels]);
+  useEffect(() => {
+    const onKey = (ev: KeyboardEvent) => {
+      if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === "k") {
+        ev.preventDefault();
+        setIsPaletteOpen((v) => !v);
+      }
+      if (ev.key === "Escape") setIsPaletteOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
-  const onModelsChanged = useCallback(
-    (available: string[], active: string | null) => {
-      setAvailableModels((prev) => (prev.join("|") === available.join("|") ? prev : available));
-      setActiveModel((prev) => (prev === active ? prev : active));
-    },
+  const onModelsChanged = useCallback((available: string[], active: string | null) => {
+    setAvailableModels((prev) => (prev.join("|") === available.join("|") ? prev : available));
+    setActiveModel((prev) => (prev === active ? prev : active));
+  }, []);
+
+  const commands = useMemo<CommandItem[]>(
+    () => [
+      { id: "nav-predict", label: "Go to Prediction", group: "Navigation", run: () => setMode("predict") },
+      { id: "nav-lab", label: "Go to Lab", group: "Navigation", run: () => setMode("lab") },
+      { id: "nav-train", label: "Go to Training", group: "Navigation", run: () => setMode("train") },
+      { id: "nav-models", label: "Go to Models", group: "Navigation", run: () => setMode("models") },
+      { id: "theme", label: "Toggle Theme", group: "Settings", run: () => setTheme((t) => (t === "dark" ? "light" : "dark")) },
+      { id: "open-palette", label: "Open Command Palette", group: "Actions", run: () => setIsPaletteOpen(true) },
+      { id: "refresh-models", label: "Refresh Model Registry", group: "Models", run: () => window.location.reload() },
+    ],
     [],
   );
 
+  const paletteResults = useMemo(() => {
+    const q = paletteQuery.trim().toLowerCase();
+    if (!q) return commands;
+    return commands.filter((c) => c.label.toLowerCase().includes(q) || c.group.toLowerCase().includes(q));
+  }, [commands, paletteQuery]);
+
+  const statusText = isBootstrapping
+    ? "Bootstrapping"
+    : availableModels.length === 0
+      ? "No model"
+      : mode === "train"
+        ? "Training"
+        : "Ready";
+
+  const quickActions = useMemo(() => {
+    if (mode === "predict") return ["Undo", "Clear", "Compare"];
+    if (mode === "lab") return ["Play", "Step", "Reset"];
+    if (mode === "train") return ["Start", "Stop", "Save"];
+    return ["Import", "New"];
+  }, [mode]);
+
   return (
-    <div className={`app-shell ${theme === "light" ? "theme-light" : "theme-dark"} flex flex-col h-screen bg-slate-950 text-slate-100 font-sans overflow-hidden`}>
-      <header className="h-16 bg-slate-900 border-b border-slate-800 shrink-0">
-        <div className="h-full px-4 md:px-6 max-w-[1800px] mx-auto flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 bg-cyan-600 rounded-lg flex items-center justify-center shrink-0">
-              <Brain className="text-white" size={20} />
-            </div>
-            <h1 className="font-bold text-lg tracking-tight truncate">Neurofluxion</h1>
+    <div className={`ncc-shell ${theme === "light" ? "theme-light" : "theme-dark"}`}>
+      <aside className="ncc-rail" aria-label="Neural Spine">
+        <div className="ncc-rail-inner">
+          <button className="ncc-logo" onClick={() => setMode("lab")} title="Neurofluxion">
+            <Brain size={20} />
+          </button>
+          <div className="ncc-rail-links">
+            <button className={`ncc-link ${mode === "predict" ? "active" : ""}`} onClick={() => setMode("predict")}><ScanEye size={18} /><span>Prediction</span></button>
+            <button className={`ncc-link ${mode === "lab" ? "active" : ""}`} onClick={() => setMode("lab")}><FlaskConical size={18} /><span>Lab</span></button>
+            <button className={`ncc-link ${mode === "train" ? "active" : ""}`} onClick={() => setMode("train")}><LineChart size={18} /><span>Training</span></button>
+            <button className={`ncc-link ${mode === "models" ? "active" : ""}`} onClick={() => setMode("models")}><Database size={18} /><span>Models</span></button>
           </div>
-
-          <div className="flex items-center gap-2 md:gap-3">
-            <nav className="flex gap-1.5 md:gap-2 rounded-xl bg-slate-950/50 border border-slate-700 px-1.5 py-1">
-              <button
-                onClick={() => setMode("lab")}
-                className={`px-3 md:px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2
-                 ${mode === "lab" ? "bg-cyan-600/20 text-cyan-400 border border-cyan-600/50" : "text-slate-400 hover:text-white"}`}
-                title="Open Neurofluxion lab"
-              >
-                <FlaskConical size={16} /> <span className="hidden sm:inline">Lab</span>
-              </button>
-              <button
-                onClick={() => setMode("train")}
-                className={`px-3 md:px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2
-                 ${mode === "train" ? "bg-cyan-600/20 text-cyan-400 border border-cyan-600/50" : "text-slate-400 hover:text-white"}`}
-              >
-                <LineChart size={16} /> <span className="hidden sm:inline">Training</span>
-              </button>
-              <button
-                onClick={() => setMode("models")}
-                className={`px-3 md:px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2
-                 ${mode === "models" ? "bg-cyan-600/20 text-cyan-400 border border-cyan-600/50" : "text-slate-400 hover:text-white"}`}
-              >
-                <Database size={16} /> <span className="hidden sm:inline">Models</span>
-              </button>
-            </nav>
-
-            <button
-              onClick={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
-              className="h-10 px-3 rounded-xl border border-slate-700 bg-slate-950/60 text-slate-200 hover:text-cyan-300 hover:border-cyan-700 transition-colors flex items-center gap-2"
-              title={`Switch to ${theme === "dark" ? "Light" : "Dark"} mode`}
-              aria-label={`Switch to ${theme === "dark" ? "Light" : "Dark"} mode`}
-            >
-              {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
-              <span className="hidden md:inline text-sm">{theme === "dark" ? "Light" : "Dark"}</span>
+          <div className="ncc-rail-footer">
+            <button className="ncc-link"><Settings size={18} /><span>Settings</span></button>
+            <button className="ncc-link" onClick={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}>
+              {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+              <span>{theme === "dark" ? "Light" : "Dark"}</span>
             </button>
           </div>
         </div>
-      </header>
+      </aside>
 
-      <div
-        className={`border-b text-sm ${hasSavedModels ? "bg-emerald-950/40 border-emerald-900 text-emerald-300" : "bg-amber-950/40 border-amber-900 text-amber-300"}`}
-      >
-        <div className="px-4 md:px-6 max-w-[1800px] mx-auto py-2 flex items-center gap-2">
-          {hasSavedModels ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
-          {isBootstrapping
-            ? "Checking saved models..."
-            : hasSavedModels
-              ? `Saved models detected (${availableModels.join(", ")}). Active: ${activeModel ?? "n/a"}. Lab is set as your primary real-time workspace.`
-              : "No saved models found yet. Use Lab or Training to train models in real time."}
+      <main className="ncc-content">
+        {startupError && <div className="ncc-banner danger">{startupError}</div>}
+        {mode === "predict"
+          ? <PredictionMode />
+          : mode === "train"
+            ? <TrainingMode />
+            : mode === "models"
+              ? <ModelsMode onModelsChanged={onModelsChanged} />
+              : <NeurofluxionLayout />}
+      </main>
+
+      <section className="ncc-command-strip" aria-label="Status Conduit">
+        <div className={`ncc-status-dot ${statusText === "Training" ? "training" : statusText === "Ready" ? "ready" : statusText === "No model" ? "off" : ""}`} />
+        <div className="ncc-model-info">
+          <div className="ncc-model-title">{activeModel ?? "Dense_v3"}</div>
+          <div className="ncc-model-meta">{statusText}</div>
         </div>
-      </div>
-      {startupError && (
-        <div className="text-xs bg-rose-950/40 border-b border-rose-900 text-rose-300">
-          <div className="px-4 md:px-6 max-w-[1800px] mx-auto py-2">{startupError}</div>
+        <div className="ncc-sep" />
+        <div className="ncc-actions">
+          {quickActions.map((action) => (
+            <button key={action} className="ncc-chip">{action}</button>
+          ))}
+        </div>
+        <div className="ncc-sep" />
+        <button className="ncc-k-button" onClick={() => setIsPaletteOpen(true)}>
+          <Search size={14} />
+          <span>Command</span>
+          <kbd>Ctrl+K</kbd>
+        </button>
+      </section>
+
+      {isPaletteOpen && (
+        <div className="ncc-palette-backdrop" onClick={() => setIsPaletteOpen(false)}>
+          <div className="ncc-palette" onClick={(e) => e.stopPropagation()}>
+            <div className="ncc-palette-input-wrap">
+              <Command size={16} />
+              <input
+                value={paletteQuery}
+                onChange={(e) => setPaletteQuery(e.target.value)}
+                placeholder="Search actions, navigation, models..."
+                autoFocus
+              />
+            </div>
+            <div className="ncc-palette-list">
+              {paletteResults.map((item) => (
+                <button
+                  key={item.id}
+                  className="ncc-palette-item"
+                  onClick={() => {
+                    item.run();
+                    setIsPaletteOpen(false);
+                    setPaletteQuery("");
+                  }}
+                >
+                  <span>{item.label}</span>
+                  <small>{item.group}</small>
+                </button>
+              ))}
+              {paletteResults.length === 0 && <div className="ncc-empty">No matches</div>}
+            </div>
+          </div>
         </div>
       )}
-
-      <main className="flex-1 overflow-auto">
-        <div className={`h-full ${mode === "lab" ? "w-full" : "max-w-[1800px] mx-auto"}`}>
-          {mode === "train" ? (
-            <TrainingMode />
-          ) : (
-            mode === "models" ? <ModelsMode onModelsChanged={onModelsChanged} /> : <NeurofluxionLayout />
-          )}
-        </div>
-      </main>
+      <div className="ncc-mobile-tabs">
+        <button className={mode === "predict" ? "active" : ""} onClick={() => setMode("predict")}><ScanEye size={16} />Predict</button>
+        <button className={mode === "lab" ? "active" : ""} onClick={() => setMode("lab")}><FlaskConical size={16} />Lab</button>
+        <button className={mode === "train" ? "active" : ""} onClick={() => setMode("train")}><Activity size={16} />Train</button>
+        <button className={mode === "models" ? "active" : ""} onClick={() => setMode("models")}><Database size={16} />Models</button>
+      </div>
     </div>
   );
 }
