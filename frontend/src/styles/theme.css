@@ -1,0 +1,95 @@
+:root,
+[data-theme="dark"] {
+  --bg-void: #06080d;
+  --bg-shell: #0c1018;
+  --bg-panel: #121826;
+  --bg-card: #1a2138;
+  --bg-elevated: #232d4a;
+  --bg-highest: #2c3860;
+
+  --glass-bg: rgba(12, 16, 24, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.06);
+
+  --text-1: #f0f2f7;
+  --text-2: #a8b2cc;
+  --text-3: #6b7a99;
+  --text-4: #3d4b6e;
+  --text-inverse: #06080d;
+
+  --fwd: #38bdf8;
+  --fwd-bg: rgba(56, 189, 248, 0.08);
+  --fwd-border: rgba(56, 189, 248, 0.2);
+  --bwd: #fb923c;
+  --bwd-bg: rgba(251, 146, 60, 0.08);
+  --bwd-border: rgba(251, 146, 60, 0.2);
+
+  --arch-ann: #f472b6;
+  --arch-cnn: #34d399;
+  --arch-rnn: #a78bfa;
+
+  --status-success: #34d399;
+  --status-success-bg: rgba(52, 211, 153, 0.08);
+  --status-warning: #fbbf24;
+  --status-warning-bg: rgba(251, 191, 36, 0.08);
+  --status-error: #f87171;
+  --status-error-bg: rgba(248, 113, 113, 0.08);
+  --status-info: #60a5fa;
+  --status-info-bg: rgba(96, 165, 250, 0.08);
+
+  --math-panel-bg: rgba(15, 10, 30, 0.6);
+  --math-panel-border: rgba(139, 92, 246, 0.12);
+  --math-text: #e2e0ff;
+  --math-live: #34d399;
+  --math-var: #93c5fd;
+}
+
+[data-theme="light"],
+html.light {
+  --bg-void: #fafbfe;
+  --bg-shell: #f1f3f9;
+  --bg-panel: #e8ecf4;
+  --bg-card: #ffffff;
+  --bg-elevated: #f5f7fc;
+  --bg-highest: #ffffff;
+
+  --glass-bg: rgba(255, 255, 255, 0.8);
+  --glass-border: rgba(0, 0, 0, 0.06);
+
+  --text-1: #111827;
+  --text-2: #374151;
+  --text-3: #6b7280;
+  --text-4: #9ca3af;
+  --text-inverse: #ffffff;
+
+  --fwd: #0284c7;
+  --fwd-bg: rgba(2, 132, 199, 0.06);
+  --fwd-border: rgba(2, 132, 199, 0.18);
+  --bwd: #c2410c;
+  --bwd-bg: rgba(194, 65, 12, 0.05);
+  --bwd-border: rgba(194, 65, 12, 0.15);
+
+  --arch-ann: #db2777;
+  --arch-cnn: #059669;
+  --arch-rnn: #7c3aed;
+
+  --status-success: #059669;
+  --status-success-bg: rgba(5, 150, 105, 0.08);
+  --status-warning: #d97706;
+  --status-warning-bg: rgba(217, 119, 6, 0.08);
+  --status-error: #dc2626;
+  --status-error-bg: rgba(220, 38, 38, 0.06);
+  --status-info: #2563eb;
+  --status-info-bg: rgba(37, 99, 235, 0.06);
+
+  --math-panel-bg: #f5f3ff;
+  --math-panel-border: rgba(124, 58, 237, 0.1);
+  --math-text: #1e1b4b;
+  --math-live: #059669;
+  --math-var: #1d4ed8;
+}
+
+[data-color-mode="colorblind"] {
+  --status-success: #2563eb;
+  --status-error: #d4a017;
+  --status-warning: #7c3aed;
+}

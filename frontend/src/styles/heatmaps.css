@@ -1,0 +1,9 @@
+.saliency-overlay {
+  mix-blend-mode: screen;
+}
+
+.heatmap-card {
+  border: 1px solid var(--glass-border);
+  background: var(--bg-card);
+  border-radius: 14px;
+}

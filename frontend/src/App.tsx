@@ -1,12 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import TrainingMode from "./components/training/TrainingMode";
 import ModelsMode from "./components/models/ModelsMode";
-import NeurofluxionLayout from "./components/neurofluxion/NeurofluxionLayout";
 import PredictionMode from "./components/prediction/PredictionMode";
+import LabPage from "./pages/LabPage";
+import SimulatorPage from "./pages/SimulatorPage";
 import { apiClient } from "./api/client";
 import { Activity, Brain, Command, Database, FlaskConical, LineChart, Moon, Search, Settings, Sun, ScanEye } from "lucide-react";
+import { NeuralAmbient } from "./design-system/ambient/NeuralAmbient";
 
-type AppMode = "predict" | "train" | "models" | "lab";
+type AppMode = "predict" | "train" | "models" | "lab" | "simulator";
 type ThemeMode = "dark" | "light";
 
 interface CommandItem {
@@ -81,6 +83,7 @@ export default function App() {
     () => [
       { id: "nav-predict", label: "Go to Prediction", group: "Navigation", run: () => setMode("predict") },
       { id: "nav-lab", label: "Go to Lab", group: "Navigation", run: () => setMode("lab") },
+      { id: "nav-simulator", label: "Go to Simulator", group: "Navigation", run: () => setMode("simulator") },
       { id: "nav-train", label: "Go to Training", group: "Navigation", run: () => setMode("train") },
       { id: "nav-models", label: "Go to Models", group: "Navigation", run: () => setMode("models") },
       { id: "theme", label: "Toggle Theme", group: "Settings", run: () => setTheme((t) => (t === "dark" ? "light" : "dark")) },
@@ -107,12 +110,14 @@ export default function App() {
   const quickActions = useMemo(() => {
     if (mode === "predict") return ["Undo", "Clear", "Compare"];
     if (mode === "lab") return ["Play", "Step", "Reset"];
+    if (mode === "simulator") return ["Build", "Forward", "Inspect"];
     if (mode === "train") return ["Start", "Stop", "Save"];
     return ["Import", "New"];
   }, [mode]);
 
   return (
     <div className={`ncc-shell ${theme === "light" ? "theme-light" : "theme-dark"}`}>
+      {mode === "simulator" ? <NeuralAmbient /> : null}
       <aside className="ncc-rail" aria-label="Neural Spine">
         <div className="ncc-rail-inner">
           <button className="ncc-logo" onClick={() => setMode("lab")} title="Neurofluxion">
@@ -121,6 +126,7 @@ export default function App() {
           <div className="ncc-rail-links">
             <button className={`ncc-link ${mode === "predict" ? "active" : ""}`} onClick={() => setMode("predict")}><ScanEye size={18} /><span>Prediction</span></button>
             <button className={`ncc-link ${mode === "lab" ? "active" : ""}`} onClick={() => setMode("lab")}><FlaskConical size={18} /><span>Lab</span></button>
+            <button className={`ncc-link ${mode === "simulator" ? "active" : ""}`} onClick={() => setMode("simulator")}><Brain size={18} /><span>Simulator</span></button>
             <button className={`ncc-link ${mode === "train" ? "active" : ""}`} onClick={() => setMode("train")}><LineChart size={18} /><span>Training</span></button>
             <button className={`ncc-link ${mode === "models" ? "active" : ""}`} onClick={() => setMode("models")}><Database size={18} /><span>Models</span></button>
           </div>
@@ -134,15 +140,19 @@ export default function App() {
         </div>
       </aside>
 
-      <main className="ncc-content">
+      <main className={`ncc-content ${mode === "simulator" ? "ncc-content-sim" : ""}`}>
         {startupError && <div className="ncc-banner danger">{startupError}</div>}
-        {mode === "predict"
-          ? <PredictionMode />
-          : mode === "train"
-            ? <TrainingMode />
-            : mode === "models"
-              ? <ModelsMode onModelsChanged={onModelsChanged} />
-              : <NeurofluxionLayout />}
+        <div key={mode} className="routing-fade">
+          {mode === "predict"
+            ? <PredictionMode />
+            : mode === "train"
+              ? <TrainingMode />
+              : mode === "models"
+                ? <ModelsMode onModelsChanged={onModelsChanged} />
+                : mode === "simulator"
+                  ? <SimulatorPage />
+                  : <LabPage />}
+        </div>
       </main>
 
       <section className="ncc-command-strip" aria-label="Status Conduit">
@@ -200,6 +210,7 @@ export default function App() {
       <div className="ncc-mobile-tabs">
         <button className={mode === "predict" ? "active" : ""} onClick={() => setMode("predict")}><ScanEye size={16} />Predict</button>
         <button className={mode === "lab" ? "active" : ""} onClick={() => setMode("lab")}><FlaskConical size={16} />Lab</button>
+        <button className={mode === "simulator" ? "active" : ""} onClick={() => setMode("simulator")}><Brain size={16} />Sim</button>
         <button className={mode === "train" ? "active" : ""} onClick={() => setMode("train")}><Activity size={16} />Train</button>
         <button className={mode === "models" ? "active" : ""} onClick={() => setMode("models")}><Database size={16} />Models</button>
       </div>

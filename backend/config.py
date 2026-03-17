@@ -1,10 +1,24 @@
 import os
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-ANN_MODEL_PATH = os.path.join(BASE_DIR, "nn_visual_ann.h5")
-CNN_MODEL_PATH = os.path.join(BASE_DIR, "nn_visual_cnn.h5")
-RNN_MODEL_PATH = os.path.join(BASE_DIR, "nn_visual_rnn.h5")
-MODELS_DIR = os.path.join(BASE_DIR, "models_store")
+PROJECT_ROOT = os.path.dirname(BASE_DIR)
+MODELS_DIR = os.path.join(PROJECT_ROOT, "models_store")
+os.makedirs(MODELS_DIR, exist_ok=True)
+
+def _resolve_model_path(filename: str) -> str:
+    preferred = os.path.join(MODELS_DIR, filename)
+    if os.path.exists(preferred):
+        return preferred
+    # Backward-compatible fallback for older repos that keep models in backend/.
+    legacy = os.path.join(BASE_DIR, filename)
+    if os.path.exists(legacy):
+        return legacy
+    return preferred
+
+
+ANN_MODEL_PATH = _resolve_model_path("nn_visual_ann.h5")
+CNN_MODEL_PATH = _resolve_model_path("nn_visual_cnn.h5")
+RNN_MODEL_PATH = _resolve_model_path("nn_visual_rnn.h5")
 CORS_ORIGINS = ["http://localhost:5173", "http://localhost:3000"]
 SUPPORTED_MODEL_TYPES = ["ann", "cnn", "rnn"]
 DEFAULT_MODEL_TYPE = "ann"
