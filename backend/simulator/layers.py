@@ -99,8 +99,10 @@ def validate_layers(layers: List[LayerConfig]) -> ValidationResult:
     input_layer = layers[0]
     if input_layer.input_shape:
         current_shape = tuple(int(v) for v in input_layer.input_shape)
-    else:
+    elif input_layer.neurons:
         current_shape = (input_layer.neurons,)
+    else:
+        current_shape = None
     if len(current_shape) == 3:
         current_type = "spatial"
     elif len(current_shape) == 2:
@@ -109,13 +111,21 @@ def validate_layers(layers: List[LayerConfig]) -> ValidationResult:
         current_type = "vector"
 
     for idx, layer in enumerate(layers):
-        if layer.neurons < 1 or layer.neurons > 512:
-            errors.append(f"Layer {idx} has invalid neuron count (1-512).")
+        if layer.layer_type == "input":
+            if layer.input_shape is None and (layer.neurons is None or layer.neurons < 1 or layer.neurons > 10000):
+                errors.append(f"Layer {idx} has invalid neuron count for input layer (1-10000).")
+        elif layer.neurons is None or layer.neurons < 1 or layer.neurons > 512:
+            errors.append(f"Layer {idx} has invalid neuron count for hidden/output layer (1-512).")
         if not _is_supported(layer.layer_type):
             errors.append(f"Layer {idx} type '{layer.layer_type}' not supported.")
 
         if idx == 0:
-            architecture.append(layer.neurons)
+            if layer.input_shape:
+                architecture.append(_shape_size(layer.input_shape))
+            elif layer.neurons:
+                architecture.append(layer.neurons)
+            else:
+                errors.append(f"Layer {idx} (input) requires neurons or input_shape.")
             continue
 
         ltype = layer.layer_type
@@ -252,7 +262,7 @@ def validate_layers(layers: List[LayerConfig]) -> ValidationResult:
 
     return ValidationResult(
         valid=len(errors) == 0,
-        architecture=architecture,
+        architecture=architecture if architecture else [],
         activations=activations,
         total_params=total_params,
         flops_per_sample=flops,

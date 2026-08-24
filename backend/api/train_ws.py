@@ -18,6 +18,7 @@ async def train_ws(ws: WebSocket):
         status_map = {
             "running": "training",
             "paused": "paused",
+            "stopping": "stopping",
             "completed": "completed",
             "stopped": "stopped",
             "error": "idle",

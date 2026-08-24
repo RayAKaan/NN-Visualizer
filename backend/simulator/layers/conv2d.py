@@ -6,6 +6,7 @@ from typing import Tuple
 import numpy as np
 
 from ..activations import get_activation
+from .im2col import col2im, im2col
 
 
 @dataclass
@@ -61,44 +62,34 @@ class Conv2DLayer:
         _, h, w = x_p.shape
         out_h = (h - k_h) // self.cfg.stride + 1
         out_w = (w - k_w) // self.cfg.stride + 1
-        z = np.zeros((c_out, out_h, out_w), dtype=np.float32)
-        for f in range(c_out):
-            for i in range(out_h):
-                for j in range(out_w):
-                    h0 = i * self.cfg.stride
-                    w0 = j * self.cfg.stride
-                    patch = x_p[:, h0 : h0 + k_h, w0 : w0 + k_w]
-                    z[f, i, j] = np.sum(patch * self.K[f]) + self.b[f]
-        self.Z = z
+
+        x_col = im2col(x_p, k_h, k_w, self.cfg.stride)
+        W_row = self.K.reshape(c_out, -1)
+        z = W_row @ x_col + self.b.reshape(-1, 1)
+
+        self.Z = z.reshape(c_out, out_h, out_w)
         act = get_activation(self.cfg.activation)
-        return act.forward(z)
+        return act.forward(self.Z)
 
     def backward(self, d_out: np.ndarray) -> np.ndarray:
         if self.X_padded is None or self.Z is None:
             raise RuntimeError("Conv2DLayer.backward called before forward.")
         act = get_activation(self.cfg.activation)
         dZ = d_out * act.derivative(self.Z)
+
         c_out, c_in, k_h, k_w = self.K.shape
         _, h_p, w_p = self.X_padded.shape
-        out_h = (h_p - k_h) // self.cfg.stride + 1
-        out_w = (w_p - k_w) // self.cfg.stride + 1
 
-        dK = np.zeros_like(self.K, dtype=np.float32)
-        db = np.zeros_like(self.b, dtype=np.float32)
-        dX_p = np.zeros_like(self.X_padded, dtype=np.float32)
+        x_col = im2col(self.X_padded, k_h, k_w, self.cfg.stride)
+        dZ_flat = dZ.reshape(c_out, -1)
 
-        for f in range(c_out):
-            db[f] = np.sum(dZ[f])
-            for i in range(out_h):
-                for j in range(out_w):
-                    h0 = i * self.cfg.stride
-                    w0 = j * self.cfg.stride
-                    patch = self.X_padded[:, h0 : h0 + k_h, w0 : w0 + k_w]
-                    dK[f] += dZ[f, i, j] * patch
-                    dX_p[:, h0 : h0 + k_h, w0 : w0 + k_w] += dZ[f, i, j] * self.K[f]
+        self.dK = (dZ_flat @ x_col.T).reshape(c_out, c_in, k_h, k_w)
+        self.db = dZ_flat.sum(axis=1)
 
-        self.dK = dK
-        self.db = db
+        W_row = self.K.reshape(c_out, -1)
+        dX_col = W_row.T @ dZ_flat
+        dX_p = col2im(dX_col, self.X_padded.shape, k_h, k_w, self.cfg.stride)
+
         pad_h, pad_w = self._pad_hw
         if pad_h == 0 and pad_w == 0:
             return dX_p

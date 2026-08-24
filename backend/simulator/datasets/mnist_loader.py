@@ -30,10 +30,16 @@ def load_mnist(n_samples: int, train_split: float, seed: int | None = None) -> D
         np.random.seed(seed)
     n_samples = max(50, int(n_samples))
     train_split = float(train_split)
-    data_path = os.path.join("models_store", "mnist.npz")
-    if not os.path.exists(data_path):
-        raise FileNotFoundError("MNIST data not found. Place mnist.npz in models_store.")
-    x_train, y_train, x_test, y_test = _load_npz(data_path)
+    
+    try:
+        from tensorflow.keras.datasets import mnist as keras_mnist
+        (x_train, y_train), (x_test, y_test) = keras_mnist.load_data()
+    except Exception:
+        data_path = os.path.join("models_store", "mnist.npz")
+        if not os.path.exists(data_path):
+            raise FileNotFoundError("MNIST data not found. Place mnist.npz in models_store or ensure tensorflow is available.")
+        x_train, y_train, x_test, y_test = _load_npz(data_path)
+    
     x = np.concatenate([x_train, x_test], axis=0)
     y = np.concatenate([y_train, y_test], axis=0)
 

@@ -36,51 +36,67 @@ class TrainingManager:
         self.current_batch = 0
         self.total_batches = 0
         self._ws_callback: Callable[[dict], None] | None = None
-        self._thread = None
+        self._thread: threading.Thread | None = None
         self._pause_flag = threading.Event()
         self._stop_flag = threading.Event()
+        self._lock = threading.Lock()
+        self._generation = 0
         self.batch_history = []
         self.epoch_history = []
         self._active_model = None
         self._active_model_type = None
 
     def configure(self, cfg: dict):
-        self.config = TrainingConfig(**{**asdict(self.config), **cfg})
-        return self.get_status()
+        with self._lock:
+            self.config = TrainingConfig(**{**asdict(self.config), **cfg})
+            return self.get_status()
+
+    def _is_current(self, generation: int) -> bool:
+        return generation == self._generation
 
     def start(self, callback: Callable[[dict], None] | None = None):
-        if self.status == "running":
-            return
-        self._ws_callback = callback
-        self._stop_flag.clear()
-        self._pause_flag.clear()
-        self.status = "running"
-        self._thread = threading.Thread(target=self._training_loop, daemon=True)
+        with self._lock:
+            # Signal any in-flight run (running/paused/stopping) to terminate.
+            self._stop_flag.set()
+            self._generation += 1
+            generation = self._generation
+            self._ws_callback = callback
+            self._stop_flag.clear()
+            self._pause_flag.clear()
+            self.status = "running"
+            self.current_epoch = 0
+            self.current_batch = 0
+            self.total_batches = 0
+            self.batch_history = []
+            self.epoch_history = []
+        self._thread = threading.Thread(
+            target=self._training_loop, args=(generation,), daemon=True
+        )
         self._thread.start()
 
     def pause(self):
-        if self.status == "running":
-            self.status = "paused"
-            self._pause_flag.set()
+        with self._lock:
+            if self.status == "running":
+                self.status = "paused"
+                self._pause_flag.set()
 
     def resume(self):
-        if self.status == "paused":
-            self.status = "running"
-            self._pause_flag.clear()
+        with self._lock:
+            if self.status == "paused":
+                self.status = "running"
+                self._pause_flag.clear()
 
     def stop(self):
-        self.status = "stopping"
-        self._stop_flag.set()
+        with self._lock:
+            if self.status in ("running", "paused"):
+                self.status = "stopping"
+                self._stop_flag.set()
 
     def step_batch(self):
         return {"type": "info", "message": "step_batch available during websocket-driven mode"}
 
     def step_epoch(self):
         return {"type": "info", "message": "step_epoch available during websocket-driven mode"}
-
-    def _emit(self, payload: dict):
-        if self._ws_callback:
-            self._ws_callback(payload)
 
     def _reshape(self, x):
         if self.config.model_type == "ann":
@@ -112,7 +128,20 @@ class TrainingManager:
             precision.append(float(pr)); recall.append(float(rc)); f1.append(float(f))
         return cm.tolist(), precision, recall, f1
 
-    def _training_loop(self):
+    def _training_loop(self, generation: int):
+        def emit(payload: dict):
+            # Drops messages from any run that has been superseded or stopped.
+            with self._lock:
+                current = generation == self._generation
+                callback = self._ws_callback
+            if current and callback:
+                callback(payload)
+
+        def superseded() -> bool:
+            if generation != self._generation:
+                return True
+            return False
+
         try:
             (x_train, y_train), (x_val, y_val) = tf.keras.datasets.mnist.load_data()
             x_train = self._reshape(x_train.astype("float32") / 255.0)
@@ -134,20 +163,21 @@ class TrainingManager:
             loss_fn = tf.keras.losses.SparseCategoricalCrossentropy()
 
             ds = tf.data.Dataset.from_tensor_slices((x_train, y_train)).shuffle(10000).batch(self.config.batch_size)
-            self.total_batches = int(np.ceil(len(x_train) / self.config.batch_size))
+            with self._lock:
+                self.total_batches = int(np.ceil(len(x_train) / self.config.batch_size))
 
-            for epoch in range(1, self.config.epochs + 1):
-                if self._stop_flag.is_set():
-                    self.status = "stopped"
-                    self._emit({"type": "training_stopped"})
+            epochs = self.config.epochs
+            for epoch in range(1, epochs + 1):
+                if self._stop_flag.is_set() or superseded():
+                    self._finish_stopped(generation, emit)
                     return
-                self.current_epoch = epoch
+                with self._lock:
+                    self.current_epoch = epoch
                 for batch_idx, (xb, yb) in enumerate(ds, start=1):
                     while self._pause_flag.is_set() and not self._stop_flag.is_set():
                         time.sleep(0.1)
-                    if self._stop_flag.is_set():
-                        self.status = "stopped"
-                        self._emit({"type": "training_stopped"})
+                    if self._stop_flag.is_set() or superseded():
+                        self._finish_stopped(generation, emit)
                         return
                     with tf.GradientTape() as tape:
                         preds = model(xb, training=True)
@@ -156,7 +186,8 @@ class TrainingManager:
                     clipped_grads, norm = clip_gradients(grads)
                     opt.apply_gradients(zip(clipped_grads, model.trainable_variables))
                     acc = tf.reduce_mean(tf.cast(tf.equal(tf.argmax(preds, axis=1), tf.cast(yb, tf.int64)), tf.float32))
-                    self.current_batch = batch_idx
+                    with self._lock:
+                        self.current_batch = batch_idx
 
                     batch_msg = {
                         "type": "batch_update", "epoch": epoch, "batch": batch_idx,
@@ -173,10 +204,16 @@ class TrainingManager:
                         "weights": None,
                         "timestamp": time.time(),
                     }
-                    self.batch_history.append(batch_msg)
-                    self._emit(batch_msg)
+                    with self._lock:
+                        self.batch_history.append(batch_msg)
+                    emit(batch_msg)
 
                 val_preds = model.predict(x_val, verbose=0)
+                # Stop-check immediately after the (slow) validation step so a
+                # stop/new-start request isn't blocked for seconds by predict().
+                if self._stop_flag.is_set() or superseded():
+                    self._finish_stopped(generation, emit)
+                    return
                 val_classes = np.argmax(val_preds, axis=1)
                 val_loss = loss_fn(y_val, val_preds).numpy()
                 val_acc = float((val_classes == y_val).mean())
@@ -188,17 +225,34 @@ class TrainingManager:
                     "val_accuracy": val_acc, "precision_per_class": pr, "recall_per_class": rc,
                     "f1_per_class": f1, "confusion_matrix": cm, "timestamp": time.time(),
                 }
-                self.epoch_history.append(epoch_msg)
-                self._emit(epoch_msg)
+                with self._lock:
+                    self.epoch_history.append(epoch_msg)
+                emit(epoch_msg)
 
-            self.status = "completed"
-            self._emit({"type": "training_complete", "model_type": self.config.model_type})
+            with self._lock:
+                finished_currently = generation == self._generation
+                if finished_currently:
+                    self.status = "completed"
+            if finished_currently:
+                emit({"type": "training_complete", "model_type": self.config.model_type})
         except Exception as exc:
-            self.status = "error"
-            self._emit({"type": "training_error", "error": str(exc)})
+            with self._lock:
+                failed_currently = generation == self._generation
+                if failed_currently:
+                    self.status = "error"
+            if failed_currently:
+                emit({"type": "training_error", "error": str(exc)})
+
+    def _finish_stopped(self, generation: int, emit) -> None:
+        with self._lock:
+            stopped_currently = generation == self._generation
+            if stopped_currently:
+                self.status = "stopped"
+        if stopped_currently:
+            emit({"type": "training_stopped"})
 
     def save_model(self, model_type: str):
-        if self.status == "running":
+        if self.status in ("running", "stopping"):
             raise ValueError("Cannot save while training is running. Pause or stop training first.")
         if model_type not in config.MODEL_PATHS:
             raise ValueError(f"Unsupported model type: {model_type}")

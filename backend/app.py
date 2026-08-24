@@ -23,6 +23,9 @@ from api.state import router as state_router
 from api.stream_ws import router as stream_ws_router
 from api.train_ws import router as train_ws_router
 from api.weights import router as weights_router
+from api.device_routes import router as device_router
+from api.session_routes import router as session_router
+from api.execute_routes import router as execute_router
 from services.inference import inference_engine
 
 
@@ -36,6 +39,7 @@ app = FastAPI(title="Neurofluxion", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=config.CORS_ORIGINS,
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -59,4 +63,7 @@ app.include_router(simulator_assistant_router)
 app.include_router(simulator_train_ws_router)
 app.include_router(train_ws_router)
 app.include_router(stream_ws_router)
+app.include_router(device_router)
+app.include_router(session_router)
+app.include_router(execute_router)
 

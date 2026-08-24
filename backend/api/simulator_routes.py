@@ -47,7 +47,7 @@ router = APIRouter(prefix="/api/simulator", tags=["simulator"])
 
 class LayerIn(BaseModel):
     type: str
-    neurons: int
+    neurons: Optional[int] = None
     activation: Optional[str] = None
     init: Optional[str] = None
     input_shape: Optional[List[int]] = None
@@ -243,28 +243,39 @@ class ExportImageRequest(BaseModel):
     height: int = 600
 
 def _parse_layers(req_layers: List[LayerIn]) -> List[LayerConfig]:
-    return [
-        LayerConfig(
-            layer_type=l.type,
-            neurons=l.neurons,
-            activation=l.activation,
-            init=l.init,
-            input_shape=l.input_shape,
-            kernel_size=l.kernel_size,
-            stride=l.stride,
-            padding=l.padding,
-            filters=l.filters,
-            pool_size=l.pool_size,
-            pool_stride=l.pool_stride,
-            hidden_size=l.hidden_size,
-            sequence_length=l.sequence_length,
-            return_sequences=l.return_sequences,
-            embedding_dim=l.embedding_dim,
-            vocab_size=l.vocab_size,
-            num_heads=l.num_heads,
+    result = []
+    for l in req_layers:
+        layer_type = l.type
+        neurons = l.neurons
+        input_shape = l.input_shape
+        sequence_length = l.sequence_length
+        
+        if layer_type == "input" and sequence_length is not None and neurons is not None:
+            input_shape = [sequence_length, neurons]
+            neurons = None
+        
+        result.append(
+            LayerConfig(
+                layer_type=layer_type,
+                neurons=neurons,
+                activation=l.activation,
+                init=l.init,
+                input_shape=input_shape,
+                kernel_size=l.kernel_size,
+                stride=l.stride,
+                padding=l.padding,
+                filters=l.filters,
+                pool_size=l.pool_size,
+                pool_stride=l.pool_stride,
+                hidden_size=l.hidden_size,
+                sequence_length=sequence_length,
+                return_sequences=l.return_sequences,
+                embedding_dim=l.embedding_dim,
+                vocab_size=l.vocab_size,
+                num_heads=l.num_heads,
+            )
         )
-        for l in req_layers
-    ]
+    return result
 
 
 @router.post("/architecture/validate")
@@ -296,16 +307,16 @@ def architecture_build(req: ArchitectureRequest):
         weight_stats.append(
             {
                 "layer": idx,
-                "mean": float(w.mean()),
-                "std": float(w.std()),
-                "min": float(w.min()),
-                "max": float(w.max()),
+                "mean": float(w.mean()) if np.isfinite(w.mean()) else 0.0,
+                "std": float(w.std()) if np.isfinite(w.std()) else 0.0,
+                "min": float(w.min()) if np.isfinite(w.min()) else 0.0,
+                "max": float(w.max()) if np.isfinite(w.max()) else 0.0,
             }
         )
     return {
         "graph_id": graph_id,
-        "weights": [w.tolist() for w in graph.weights],
-        "biases": [b.tolist() for b in graph.biases],
+        "weights": [[float(v) if np.isfinite(v) else 0.0 for v in w.flatten()] for w in graph.weights],
+        "biases": [[float(v) if np.isfinite(v) else 0.0 for v in b.flatten()] for b in graph.biases],
         "weight_stats": weight_stats,
     }
 
@@ -721,11 +732,23 @@ def profile_full(req: ProfileRequest):
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     flops = compute_flops(graph)
     mem = estimate_memory(graph)
-    batch = estimate_throughput(req.batch_sizes)
-    bottleneck = detect_bottlenecks()
+    
+    total_params = sum(w.size + b.size for w, b in zip(graph.weights, graph.biases))
+    memory_per_sample = total_params * 4
+    params_bytes = total_params * 4
+    optimizer_bytes = total_params * 4 * 2
+    
+    batch = estimate_throughput(
+        req.batch_sizes,
+        flops.get("total_flops_forward", 0),
+        memory_per_sample,
+        params_bytes,
+        optimizer_bytes
+    )
+    bottleneck = detect_bottlenecks(per_layer=flops.get("per_layer", []), memory_per_layer=mem.get("per_layer", []))
     return {
         "summary": {
-            "total_params": sum(w.size + b.size for w, b in zip(graph.weights, graph.biases)),
+            "total_params": total_params,
             "total_flops_forward": flops.get("total_flops_forward", 0),
         },
         "per_layer": flops.get("per_layer", []),

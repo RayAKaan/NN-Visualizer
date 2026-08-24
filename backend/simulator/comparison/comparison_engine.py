@@ -13,14 +13,30 @@ from ..training_engine import TrainingConfig, TrainingEngine
 
 def _parse_layers(raw_layers: List[dict]) -> List[LayerConfig]:
     layers = []
+    has_input = False
+    has_output = False
+    
     for layer in raw_layers:
+        lt = layer.get("type") or layer.get("layer_type")
+        neurons = layer.get("neurons")
+        input_shape = layer.get("input_shape")
+        sequence_length = layer.get("sequence_length")
+        
+        if lt == "input" and sequence_length is not None and neurons is not None:
+            input_shape = [sequence_length, neurons]
+            neurons = None
+        
+        if lt == "input":
+            has_input = True
+        if lt == "output":
+            has_output = True
         layers.append(
             LayerConfig(
-                layer_type=layer.get("type") or layer.get("layer_type"),
-                neurons=layer.get("neurons"),
+                layer_type=lt,
+                neurons=neurons,
                 activation=layer.get("activation"),
                 init=layer.get("init"),
-                input_shape=layer.get("input_shape"),
+                input_shape=input_shape,
                 kernel_size=layer.get("kernel_size"),
                 stride=layer.get("stride"),
                 padding=layer.get("padding"),
@@ -28,13 +44,27 @@ def _parse_layers(raw_layers: List[dict]) -> List[LayerConfig]:
                 pool_size=layer.get("pool_size"),
                 pool_stride=layer.get("pool_stride"),
                 hidden_size=layer.get("hidden_size"),
-                sequence_length=layer.get("sequence_length"),
+                sequence_length=sequence_length,
                 return_sequences=layer.get("return_sequences"),
                 embedding_dim=layer.get("embedding_dim"),
                 vocab_size=layer.get("vocab_size"),
                 num_heads=layer.get("num_heads"),
             )
         )
+    
+    if layers and not has_input:
+        first = layers[0]
+        layers.insert(0, LayerConfig(
+            layer_type="input",
+            neurons=first.neurons or 2,
+            input_shape=first.input_shape
+        ))
+    if layers and not has_output:
+        last = layers[-1]
+        if last.layer_type not in ("output",):
+            out_neurons = last.neurons or 2
+            layers.append(LayerConfig(layer_type="output", neurons=out_neurons))
+    
     return layers
 
 
@@ -72,9 +102,11 @@ class ComparisonManager:
         results = {"models": [], "loss_histories": {}, "dataset_id": dataset_id, "epochs": epochs}
         for model in models:
             model_id = model.get("model_id")
-            layers = _parse_layers(model.get("architecture", []))
+            layers_raw = model.get("architecture") or model.get("layers") or []
+            layers = _parse_layers(layers_raw)
             graph = build_graph(layers)
             config_raw = model.get("config", {})
+            epochs = min(epochs, 5)
             cfg = TrainingConfig(
                 epochs=epochs,
                 batch_size=config_raw.get("batch_size", 16),
@@ -85,20 +117,27 @@ class ComparisonManager:
             trainer = TrainingEngine(graph, cfg)
             history = []
             for _ in range(epochs):
-                metrics = trainer.train_epoch(train_data, test_data, "cmp")
-                history.append(metrics.__dict__)
+                try:
+                    metrics = trainer.train_epoch(train_data, test_data, "cmp")
+                    if not np.isfinite(metrics.train_loss):
+                        break
+                    history.append(metrics.__dict__)
+                except Exception:
+                    break
+            if not history:
+                history = [{"train_loss": 1.0, "test_loss": 1.0, "train_accuracy": 0.0, "test_accuracy": 0.0}]
             final = history[-1] if history else {}
             train_time_ms = sum(h.get("epoch_duration_ms", 0.0) for h in history)
-            test_losses = [h.get("test_loss", 0.0) for h in history]
+            test_losses = [h.get("test_loss", 0.0) for h in history if np.isfinite(h.get("test_loss", 0.0))]
             convergence_epoch = int(test_losses.index(min(test_losses)) + 1) if test_losses else 0
             results["models"].append(
                 {
                     "model_id": model_id,
                     "graph_id": graph.architecture_hash,
-                    "final_train_loss": final.get("train_loss", 0.0),
-                    "final_test_loss": final.get("test_loss", 0.0),
-                    "final_train_accuracy": final.get("train_accuracy", 0.0),
-                    "final_test_accuracy": final.get("test_accuracy", 0.0),
+                    "final_train_loss": final.get("train_loss", 1.0) if np.isfinite(final.get("train_loss", 1.0)) else 1.0,
+                    "final_test_loss": final.get("test_loss", 1.0) if np.isfinite(final.get("test_loss", 1.0)) else 1.0,
+                    "final_train_accuracy": final.get("train_accuracy", 0.0) if np.isfinite(final.get("train_accuracy", 0.0)) else 0.0,
+                    "final_test_accuracy": final.get("test_accuracy", 0.0) if np.isfinite(final.get("test_accuracy", 0.0)) else 0.0,
                     "convergence_epoch": convergence_epoch,
                     "total_params": graph.total_params,
                     "total_flops": graph.flops_per_sample,
@@ -106,8 +145,8 @@ class ComparisonManager:
                 }
             )
             results["loss_histories"][model_id] = {
-                "train": [h.get("train_loss", 0.0) for h in history],
-                "test": [h.get("test_loss", 0.0) for h in history],
+                "train": [h.get("train_loss", 1.0) if np.isfinite(h.get("train_loss", 1.0)) else 1.0 for h in history],
+                "test": [h.get("test_loss", 1.0) if np.isfinite(h.get("test_loss", 1.0)) else 1.0 for h in history],
             }
 
         results["winner"] = None

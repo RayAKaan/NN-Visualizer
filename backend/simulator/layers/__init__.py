@@ -7,7 +7,7 @@ from typing import List, Optional
 @dataclass
 class LayerConfig:
     layer_type: str
-    neurons: int
+    neurons: Optional[int] = None
     activation: str | None = None
     init: str | None = None
     input_shape: Optional[List[int]] = None
@@ -99,23 +99,42 @@ def validate_layers(layers: List[LayerConfig]) -> ValidationResult:
     input_layer = layers[0]
     if input_layer.input_shape:
         current_shape = tuple(int(v) for v in input_layer.input_shape)
-    else:
+    elif input_layer.neurons:
         current_shape = (input_layer.neurons,)
-    if len(current_shape) == 3:
-        current_type = "spatial"
-    elif len(current_shape) == 2:
-        current_type = "sequence"
     else:
+        current_shape = None
+    if current_shape and len(current_shape) == 3:
+        current_type = "spatial"
+    elif current_shape and len(current_shape) == 2:
+        current_type = "sequence"
+    elif current_shape:
         current_type = "vector"
+    else:
+        current_type = None
 
     for idx, layer in enumerate(layers):
-        if layer.neurons < 1 or layer.neurons > 512:
-            errors.append(f"Layer {idx} has invalid neuron count (1-512).")
+        if layer.layer_type == "input":
+            if layer.input_shape is None and (layer.neurons is None or layer.neurons < 1 or layer.neurons > 10000):
+                errors.append(f"Layer {idx} has invalid neuron count for input layer (1-10000).")
+        elif layer.layer_type in {"dense", "output"}:
+            if layer.neurons is None or layer.neurons < 1 or layer.neurons > 512:
+                errors.append(f"Layer {idx} has invalid neuron count for hidden/output layer (1-512).")
+        elif layer.layer_type == "conv2d":
+            if layer.filters is None or layer.filters < 1 or layer.filters > 512:
+                errors.append(f"Layer {idx} has invalid filters count for conv2d (1-512).")
+        elif layer.layer_type in {"rnn", "lstm", "gru"}:
+            if layer.hidden_size is None or layer.hidden_size < 1 or layer.hidden_size > 512:
+                errors.append(f"Layer {idx} has invalid hidden_size for {layer.layer_type} (1-512).")
         if not _is_supported(layer.layer_type):
             errors.append(f"Layer {idx} type '{layer.layer_type}' not supported.")
 
         if idx == 0:
-            architecture.append(layer.neurons)
+            if layer.input_shape:
+                architecture.append(_shape_size(layer.input_shape))
+            elif layer.neurons:
+                architecture.append(layer.neurons)
+            else:
+                errors.append(f"Layer {idx} (input) requires neurons or input_shape.")
             continue
 
         ltype = layer.layer_type
@@ -171,8 +190,8 @@ def validate_layers(layers: List[LayerConfig]) -> ValidationResult:
             current_type = "spatial"
             architecture.append(_shape_size(current_shape))
         elif ltype == "flatten":
-            if current_type != "spatial":
-                errors.append(f"Layer {idx} (flatten) requires spatial input.")
+            if current_type not in {"spatial", "sequence"}:
+                errors.append(f"Layer {idx} (flatten) requires spatial or sequence input.")
                 continue
             current_shape = (_shape_size(current_shape),)
             current_type = "vector"

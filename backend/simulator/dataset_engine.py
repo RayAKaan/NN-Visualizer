@@ -107,7 +107,18 @@ def generate_dataset(dataset_type: str, n_samples: int, noise: float, train_spli
     noise = float(noise)
     train_split = float(train_split)
 
-    dtype = (dataset_type or "circle").lower()
+    # Normalize dataset type (handle plurals and aliases)
+    dtype_map = {
+        "circles": "circle", "circle": "circle",
+        "spiral": "spiral", "spirals": "spiral",
+        "moons": "moons", "moon": "moons",
+        "blobs": "blobs", "blob": "blobs",
+        "xor": "xor", "xors": "xor",
+        "linear": "linear", "linears": "linear",
+        "rings": "rings", "ring": "rings",
+    }
+    dtype = dtype_map.get((dataset_type or "circle").lower(), (dataset_type or "circle").lower())
+    
     if dtype == "circle":
         x, y = _make_circle(n_samples, noise)
     elif dtype == "xor":
