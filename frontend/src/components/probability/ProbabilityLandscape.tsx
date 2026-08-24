@@ -1,11 +1,11 @@
-import React from "react";
+﻿import React from "react";
 import { useComparisonStore, type Architecture } from "../../store/predictionStore";
 
 const ARCHS: Architecture[] = ["ANN", "CNN", "RNN"];
 const COLORS: Record<Architecture, string> = {
-  ANN: "#f472b6",
-  CNN: "#22d3ee",
-  RNN: "#a855f7",
+  ANN: "#0072B2",
+  CNN: "#00806A",
+  RNN: "#A64D85",
 };
 
 export function ProbabilityLandscape() {
@@ -14,15 +14,15 @@ export function ProbabilityLandscape() {
   const results = useComparisonStore((s) => s.results);
 
   return (
-    <div className="rounded-xl border border-cyan-400/10 bg-slate-900/60 p-4">
+    <div className="rounded-xl border border-ember-600/40 bg-white p-4">
       <div className="flex items-center justify-between mb-3">
-        <div className="text-sm font-semibold text-cyan-200">Probability Landscape</div>
+        <div className="text-sm font-semibold text-ember-700">Probability Landscape</div>
         <div className="flex gap-1">
           {(["bars", "radial", "terrain"] as const).map((mode) => (
             <button
               key={mode}
               onClick={() => toggleViewMode(mode)}
-              className={`h-8 px-2 rounded border text-xs uppercase ${viewMode === mode ? "border-cyan-400/45 bg-cyan-500/15 text-cyan-200" : "border-white/10 bg-white/5 text-slate-300"}`}
+              className={`h-8 px-2 rounded border text-xs uppercase ${viewMode === mode ? "border-ember-600/40 bg-ember-600/15 text-ember-700" : "border-barley-linestrong bg-barley-sunken text-ink-soft"}`}
             >
               {mode}
             </button>
@@ -36,11 +36,11 @@ export function ProbabilityLandscape() {
             const probs = results[arch]?.probs ?? Array(10).fill(0);
             const best = probs.reduce((i, v, j, arr) => (v > arr[i] ? j : i), 0);
             return (
-              <div key={arch} className="rounded-lg border border-white/10 bg-black/20 p-2">
+              <div key={arch} className="rounded-lg border border-barley-line bg-barley-sunken p-2">
                 <div className="text-xs mb-1" style={{ color: COLORS[arch] }}>{arch}</div>
                 <div className="h-24 grid grid-cols-10 gap-1 items-end">
                   {probs.map((p, i) => (
-                    <div key={i} className="relative h-full rounded-sm bg-white/5 overflow-hidden">
+                    <div key={i} className="relative h-full rounded-sm bg-white overflow-hidden">
                       <div
                         className="absolute bottom-0 left-0 right-0 origin-bottom transition-transform duration-300"
                         style={{
@@ -65,7 +65,7 @@ export function ProbabilityLandscape() {
             const probs = results[arch]?.probs ?? Array(10).fill(0);
             const best = probs.reduce((i, v, j, arr) => (v > arr[i] ? j : i), 0);
             return (
-              <div key={arch} className="rounded-lg border border-white/10 bg-black/20 p-2 grid place-items-center">
+              <div key={arch} className="rounded-lg border border-barley-line bg-barley-sunken p-2 grid place-items-center">
                 <svg width="190" height="130" viewBox="0 0 190 130">
                   <g transform="translate(95,65)">
                     {probs.map((p, i) => {
@@ -73,7 +73,7 @@ export function ProbabilityLandscape() {
                       const len = 18 + p * 40;
                       return <line key={i} x1={0} y1={0} x2={Math.cos(a) * len} y2={Math.sin(a) * len} stroke={i === best ? COLORS[arch] : `${COLORS[arch]}66`} strokeWidth={i === best ? 4 : 2} />;
                     })}
-                    <circle r={14} fill="rgba(255,255,255,0.04)" stroke={`${COLORS[arch]}66`} />
+                    <circle r={14} fill="rgba(28,25,23,0.04)" stroke={`${COLORS[arch]}66`} />
                     <text x="0" y="1" fill={COLORS[arch]} fontSize="12" textAnchor="middle" dominantBaseline="middle">{results[arch]?.label ?? "-"}</text>
                   </g>
                 </svg>
@@ -89,7 +89,7 @@ export function ProbabilityLandscape() {
             const probs = results[arch]?.probs ?? Array(10).fill(0);
             const best = probs.reduce((i, v, j, arr) => (v > arr[i] ? j : i), 0);
             return (
-              <div key={arch} className="rounded-lg border border-white/10 bg-black/20 p-2">
+              <div key={arch} className="rounded-lg border border-barley-line bg-barley-sunken p-2">
                 <div className="h-[120px] flex items-end justify-center gap-1 [perspective:700px]">
                   {probs.map((p, i) => (
                     <div key={i} className="relative w-5">

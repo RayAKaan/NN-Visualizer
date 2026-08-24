@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+﻿import { useEffect, useRef } from "react";
 import katex from "katex";
 import "katex/dist/katex.min.css";
 
@@ -19,5 +19,5 @@ export function MathRenderer({ latex, displayMode = false }: Props) {
     }
   }, [latex, displayMode]);
 
-  return <div ref={ref} className="overflow-x-auto text-slate-100" />;
+  return <div ref={ref} className="overflow-x-auto text-ink" />;
 }

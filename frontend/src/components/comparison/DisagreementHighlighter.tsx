@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+﻿import React, { useEffect, useMemo, useState } from "react";
 import { useComparisonStore, type Architecture } from "../../store/predictionStore";
 
 const ARCHS: Architecture[] = ["ANN", "CNN", "RNN"];
@@ -28,7 +28,7 @@ export function DisagreementHighlighter() {
 
   return (
     <div className="fixed inset-0 pointer-events-none z-40 flex items-start justify-center pt-16" aria-live="assertive">
-      <div className="rounded-full border border-amber-400/40 bg-amber-500/15 px-4 py-2 text-xs text-amber-200 shadow-[0_0_20px_rgba(245,158,11,0.35)] animate-pulse">
+      <div className="rounded-full border border-status-warning/40 bg-status-warning/12 px-4 py-2 text-xs text-status-warning shadow-[0_0_20px_rgba(245,158,11,0.35)] animate-pulse">
         Models disagree: {message}
       </div>
     </div>

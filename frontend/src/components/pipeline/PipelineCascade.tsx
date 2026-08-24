@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+﻿import React, { useEffect, useMemo, useState } from "react";
 import { useComparisonStore, type Architecture } from "../../store/predictionStore";
 
 interface LayerNode {
@@ -31,10 +31,10 @@ const FALLBACK: Record<Architecture, LayerNode[]> = {
 };
 
 const colorForType = (type: string) => {
-  if (type.includes("conv")) return "#22d3ee";
-  if (type.includes("lstm") || type.includes("rnn")) return "#a855f7";
-  if (type.includes("dense")) return "#f472b6";
-  return "#00f0ff";
+  if (type.includes("conv")) return "#00806A";
+  if (type.includes("lstm") || type.includes("rnn")) return "#A64D85";
+  if (type.includes("dense")) return "#0072B2";
+  return "#EA580C";
 };
 
 export function PipelineCascade() {
@@ -69,16 +69,16 @@ export function PipelineCascade() {
   }, [layers, runId]);
 
   return (
-    <div className="rounded-xl border border-cyan-400/10 bg-slate-900/60 p-3">
-      <div className="text-xs text-slate-400 mb-2">Layer Cascade</div>
+    <div className="rounded-xl border border-ember-600/40 bg-white p-3">
+      <div className="text-xs text-ink-mute mb-2">Layer Cascade</div>
       <div className="flex items-center gap-2 overflow-x-auto pb-1">
         {layers.map((layer, i) => (
           <React.Fragment key={layer.id}>
             <div
-              className="shrink-0 w-12 h-12 rounded-md border grid place-items-center text-[10px] font-mono transition-all duration-200"
+              className="shrink-0 w-12 h-12 rounded-md border grid place-items-center text-[12px] font-mono transition-all duration-200"
               style={{
                 borderColor: i === active ? `${colorForType(layer.type)}aa` : `${colorForType(layer.type)}44`,
-                background: i === active ? `${colorForType(layer.type)}22` : "rgba(255,255,255,0.03)",
+                background: i === active ? `${colorForType(layer.type)}22` : "rgba(28,25,23,0.04)",
                 opacity: i === active ? 1 : 0.65,
                 transform: i === active ? "scale(1.05)" : "scale(0.95)",
                 boxShadow: i === active ? `0 0 18px ${colorForType(layer.type)}66` : "none",
@@ -88,11 +88,11 @@ export function PipelineCascade() {
               {layer.name}
             </div>
             {i < layers.length - 1 && (
-              <div className="relative shrink-0 w-7 h-[2px] bg-white/15 overflow-hidden rounded">
+              <div className="relative shrink-0 w-7 h-[2px] bg-barley-linestrong overflow-hidden rounded">
                 <span
                   className="absolute top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full"
                   style={{
-                    background: "#67e8f9",
+                    background: "#EA580C",
                     animation: active >= i ? "ann-flow-dot 0.7s linear infinite" : "none",
                   }}
                 />

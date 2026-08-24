@@ -1,4 +1,4 @@
-import type { LayerType } from "../../../types/pipeline";
+﻿import type { LayerType } from "../../../types/pipeline";
 
 const ICONS: Record<LayerType, string> = {
   input: "??",
@@ -20,11 +20,11 @@ interface Props {
 
 export function StageExplanation({ explanation, layerType }: Props) {
   return (
-    <div className="flex gap-3 rounded-xl border border-slate-700/70 bg-slate-900/55 p-3">
+    <div className="flex gap-3 rounded-xl border border-barley-linestrong bg-white p-3">
       <span className="text-xl">{ICONS[layerType]}</span>
       <div>
-        <div className="text-[11px] font-semibold uppercase tracking-wide text-cyan-300/70">What is happening</div>
-        <p className="mt-1 text-sm leading-relaxed text-slate-300">{explanation}</p>
+        <div className="text-[12px] font-semibold uppercase tracking-wide text-ember-700">What is happening</div>
+        <p className="mt-1 text-sm leading-relaxed text-ink-soft">{explanation}</p>
       </div>
     </div>
   );

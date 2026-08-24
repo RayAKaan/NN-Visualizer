@@ -1,4 +1,4 @@
-import type { Architecture, Dataset, StageActivation, StageDefinition } from "../../../../types/pipeline";
+﻿import type { Architecture, Dataset, StageActivation, StageDefinition } from "../../../../types/pipeline";
 import { Conv2DTransformation } from "./transformations/Conv2DTransformation";
 import { DenseTransformation } from "./transformations/DenseTransformation";
 import { FlattenTransformation } from "./transformations/FlattenTransformation";
@@ -22,8 +22,8 @@ interface Props {
 export function TheTransformation(props: Props) {
   const { stage } = props;
   return (
-    <section className="overflow-hidden rounded-xl border" style={{ borderColor: "var(--glass-border)", background: "var(--bg-void)" }}>
-      <div className="border-b px-4 py-2 text-xs font-semibold uppercase" style={{ borderColor: "var(--glass-border)", color: "var(--fwd)" }}>
+    <section className="overflow-hidden rounded-xl border border-barley-linestrong bg-barley-page">
+      <div className="border-b border-barley-linestrong px-4 py-2 text-xs font-semibold uppercase text-arch-ann">
         The Transformation
       </div>
       <div className="p-4">

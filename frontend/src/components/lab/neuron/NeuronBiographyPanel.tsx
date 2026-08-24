@@ -11,27 +11,26 @@ export function NeuronBiographyPanel() {
 
   return (
     <aside
-      className="fixed right-4 top-20 bottom-24 z-50 w-full overflow-y-auto rounded-2xl border shadow-2xl backdrop-blur-xl transition-all duration-300 md:w-[420px]"
-      style={{ background: "var(--bg-card)", borderColor: "var(--glass-border)" }}
+      className="fixed right-4 top-20 bottom-24 z-50 w-full overflow-y-auto rounded-2xl border border-ink/10 bg-white shadow-pop backdrop-blur-xl transition-all duration-300 md:w-[420px]"
     >
-      <div className="flex items-center justify-between border-b px-3 py-2" style={{ borderColor: "var(--glass-border)" }}>
-        <h3 className="text-sm font-semibold" style={{ color: "var(--text-1)" }}>Neuron Biography</h3>
-        <button type="button" className="text-xs" style={{ color: "var(--text-3)" }} onClick={close}>Close</button>
+      <div className="flex items-center justify-between border-b border-barley-line px-3 py-2">
+        <h3 className="text-sm font-semibold text-ink">Neuron Biography</h3>
+        <button type="button" className="text-xs text-ink-mute hover:text-ember-700" onClick={close}>Close</button>
       </div>
 
-      {isLoading ? <div className="p-3 text-xs" style={{ color: "var(--text-4)" }}>Loading�</div> : null}
-      {error ? <div className="p-3 text-xs" style={{ color: "var(--error)" }}>{error}</div> : null}
+      {isLoading ? <div className="p-3 text-xs text-ink-faint">Loading{"\u2026"}</div> : null}
+      {error ? <div className="p-3 text-xs text-status-danger">{error}</div> : null}
 
       {neuron ? (
         <div className="space-y-2 p-3 text-xs">
-          <div className="rounded-lg border p-2" style={{ borderColor: "var(--glass-border)", background: "var(--bg-panel)" }}>
-            Stage: {neuron.stageId} � index: {neuron.neuronIndex} � type: {neuron.layerType}
+          <div className="rounded-lg border border-barley-linestrong bg-barley-page p-2">
+            Stage: {neuron.stageId} {"\u00b7"} index: {neuron.neuronIndex} {"\u00b7"} type: {neuron.layerType}
           </div>
-          <div className="rounded-lg border p-2" style={{ borderColor: "var(--glass-border)", background: "var(--bg-panel)" }}>
-            Activation: {neuron.currentActivation.toFixed(5)} � importance: {(neuron.importanceScore * 100).toFixed(1)}%
+          <div className="rounded-lg border border-barley-linestrong bg-barley-page p-2">
+            Activation: {neuron.currentActivation.toFixed(5)} {"\u00b7"} importance: {(neuron.importanceScore * 100).toFixed(1)}%
           </div>
-          <div className="rounded-lg border p-2" style={{ borderColor: "var(--glass-border)", background: "var(--bg-panel)" }}>
-            Incoming: {neuron.incomingConnections} � Outgoing: {neuron.outgoingConnections} � Ablation impact: {(neuron.ablationImpact * 100).toFixed(2)}%
+          <div className="rounded-lg border border-barley-linestrong bg-barley-page p-2">
+            Incoming: {neuron.incomingConnections} {"\u00b7"} Outgoing: {neuron.outgoingConnections} {"\u00b7"} Ablation impact: {(neuron.ablationImpact * 100).toFixed(2)}%
           </div>
         </div>
       ) : null}

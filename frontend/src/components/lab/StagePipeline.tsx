@@ -1,4 +1,4 @@
-import { useLabStore } from "../../store/labStore";
+﻿import { useLabStore } from "../../store/labStore";
 import { StageCard } from "./stages/StageCard";
 import { StageConnector } from "./StageConnector";
 

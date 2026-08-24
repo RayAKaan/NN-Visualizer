@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+ï»¿import { useMemo, useState } from "react";
 import type { StageActivation, StageDefinition } from "../../../../../types/pipeline";
 
 interface Props {
@@ -29,48 +29,64 @@ export function DenseTransformation({ stage, activation, highlightedVariable, on
     return list.sort((a, b) => Math.abs(b.p) - Math.abs(a.p)).slice(0, 8);
   }, [activation.inputData, activation.weights, inputSize, selected]);
 
+  const labelColor = (v: string) => (highlightedVariable === v ? "text-arch-ann" : "text-ink-faint");
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-center gap-3">
         <div onMouseEnter={() => onHighlightVariable("x")} onMouseLeave={() => onHighlightVariable(null)}>
-          <div className="mb-1 text-[10px]" style={{ color: highlightedVariable === "x" ? "var(--fwd)" : "var(--text-4)" }}>Input x [{inputSize}]</div>
+          <div className={`mb-1 text-[12px] ${labelColor("x")}`}>Input x [{inputSize}]</div>
           <div className="space-y-px">
             {inSample.map((v, i) => (
-              <div key={i} className="h-2.5 w-20 rounded" style={{ background: `linear-gradient(to right, var(--activation-mid) ${(Math.abs(v) / maxIn) * 100}%, var(--bg-panel) 0%)` }} />
+              <div key={i} className="h-2.5 w-20 rounded bg-white">
+                <div className="h-full rounded bg-ember-600" style={{ width: `${(Math.abs(v) / maxIn) * 100}%` }} />
+              </div>
             ))}
           </div>
         </div>
-        <div className="pt-8 text-xl" style={{ color: "var(--text-4)" }}>×</div>
+        <div className="pt-8 text-xl text-ink-faint">&times;</div>
         <div onMouseEnter={() => onHighlightVariable("W")} onMouseLeave={() => onHighlightVariable(null)}>
-          <div className="mb-1 text-[10px]" style={{ color: highlightedVariable === "W" ? "var(--fwd)" : "var(--text-4)" }}>Weights W [{outputSize}×{inputSize}]</div>
-          <div className="grid grid-cols-8 gap-px rounded border p-1" style={{ borderColor: "var(--glass-border)", background: "var(--bg-void)" }}>
+          <div className={`mb-1 text-[12px] ${labelColor("W")}`}>
+            Weights W [{outputSize}
+            {"\u00d7"}
+            {inputSize}]
+          </div>
+          <div className="grid grid-cols-8 gap-px rounded border border-barley-linestrong bg-barley-page p-1">
             {Array.from(activation.weights?.slice(0, 64) ?? []).map((w, i) => (
-              <div key={i} className="h-2.5 w-2.5 rounded-sm" style={{ background: w >= 0 ? `rgba(94,234,212,${Math.min(Math.abs(w) * 3, 1)})` : `rgba(232,121,160,${Math.min(Math.abs(w) * 3, 1)})` }} />
+              <div key={i} className="h-2.5 w-2.5 rounded-sm" style={{ background: w >= 0 ? `rgba(194,65,12,${Math.min(Math.abs(w) * 3, 1)})` : `rgba(0,114,178,${Math.min(Math.abs(w) * 3, 1)})` }} />
             ))}
           </div>
         </div>
-        <div className="pt-8 text-xl" style={{ color: "var(--text-4)" }}>=</div>
+        <div className="pt-8 text-xl text-ink-faint">=</div>
         <div onMouseEnter={() => onHighlightVariable("z")} onMouseLeave={() => onHighlightVariable(null)}>
-          <div className="mb-1 text-[10px]" style={{ color: highlightedVariable === "z" ? "var(--fwd)" : "var(--text-4)" }}>Output z [{outputSize}]</div>
+          <div className={`mb-1 text-[12px] ${labelColor("z")}`}>Output z [{outputSize}]</div>
           <div className="space-y-px">
             {outSample.map((v, i) => (
-              <button key={i} type="button" className="h-2.5 w-20 rounded text-left" onClick={() => setSelected(selected === i ? null : i)} style={{ border: selected === i ? "1px solid var(--warning)" : "none", background: `linear-gradient(to right, var(--fwd) ${(Math.abs(v) / maxOut) * 100}%, var(--bg-panel) 0%)` }} />
+              <button
+                key={i}
+                type="button"
+                className={`h-2.5 w-20 rounded bg-white ${selected === i ? "ring-2 ring-status-warning" : ""}`}
+                onClick={() => setSelected(selected === i ? null : i)}
+                aria-label={`Select output neuron ${i}`}
+              >
+                <div className="h-full rounded bg-ember-600" style={{ width: `${(Math.abs(v) / maxOut) * 100}%` }} />
+              </button>
             ))}
           </div>
         </div>
       </div>
       {selected != null ? (
-        <div className="rounded-lg border p-3 text-xs" style={{ borderColor: "var(--glass-border)", background: "var(--bg-panel)" }}>
-          <div className="mb-2 font-semibold" style={{ color: "var(--warning)" }}>Neuron z[{selected}] contribution trace</div>
-          <div className="space-y-1 font-mono" style={{ color: "var(--text-2)" }}>
+        <div className="rounded-lg border border-barley-linestrong bg-white p-3 text-xs">
+          <div className="mb-2 font-semibold text-status-warning">Neuron z[{selected}] contribution trace</div>
+          <div className="space-y-1 font-mono text-ink-soft">
             {topContrib.map((c) => (
               <div key={c.i} className="flex items-center gap-2">
-                <span style={{ color: "var(--text-4)" }}>x[{c.i}]</span>
+                <span className="text-ink-faint">x[{c.i}]</span>
                 <span>{c.x.toFixed(3)}</span>
-                <span style={{ color: "var(--text-4)" }}>×</span>
+                <span className="text-ink-faint">&times;</span>
                 <span>{c.w.toFixed(3)}</span>
-                <span style={{ color: "var(--text-4)" }}>=</span>
-                <span style={{ color: c.p >= 0 ? "var(--weight-positive-strong)" : "var(--weight-negative-strong)" }}>{c.p.toFixed(4)}</span>
+                <span className="text-ink-faint">=</span>
+                <span className={c.p >= 0 ? "text-ember-800" : "text-arch-ann"}>{c.p.toFixed(4)}</span>
               </div>
             ))}
           </div>

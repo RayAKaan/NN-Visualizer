@@ -1,4 +1,4 @@
-import type { StageActivation, StageDefinition } from "../../../../../types/pipeline";
+﻿import type { StageActivation, StageDefinition } from "../../../../../types/pipeline";
 
 interface Props {
   stage: StageDefinition;
@@ -16,21 +16,25 @@ export function ReLUTransformation({ activation }: Props) {
   return (
     <div className="space-y-3">
       <div className="grid gap-3 md:grid-cols-2">
-        <div className="rounded-lg border p-2" style={{ borderColor: "var(--glass-border)", background: "var(--bg-panel)" }}>
-          <div className="mb-1 text-[10px] uppercase" style={{ color: "var(--text-4)" }}>Before (z)</div>
-          <div className="flex h-14 items-end gap-px overflow-hidden rounded" style={{ background: "var(--bg-void)" }}>
-            {before.map((v, i) => <div key={i} className="flex-1" style={{ height: `${(Math.abs(v) / max) * 100}%`, background: v >= 0 ? "var(--fwd)" : "var(--weight-negative-mid)" }} />)}
+        <div className="rounded-lg border border-barley-linestrong bg-white p-2">
+          <div className="mb-1 text-[12px] uppercase text-ink-faint">Before (z)</div>
+          <div className="flex h-14 items-end gap-px overflow-hidden rounded bg-barley-page">
+            {before.map((v, i) => (
+              <div key={i} className="flex-1" style={{ height: `${(Math.abs(v) / max) * 100}%`, background: v >= 0 ? "#EA580C" : "rgba(0,114,178,0.55)" }} />
+            ))}
           </div>
         </div>
-        <div className="rounded-lg border p-2" style={{ borderColor: "var(--glass-border)", background: "var(--bg-panel)" }}>
-          <div className="mb-1 text-[10px] uppercase" style={{ color: "var(--text-4)" }}>After (a=max(0,z))</div>
-          <div className="flex h-14 items-end gap-px overflow-hidden rounded" style={{ background: "var(--bg-void)" }}>
-            {after.map((v, i) => <div key={i} className="flex-1" style={{ height: `${(Math.abs(v) / max) * 100}%`, background: v > 0 ? "var(--fwd)" : "var(--status-error-bg)" }} />)}
+        <div className="rounded-lg border border-barley-linestrong bg-white p-2">
+          <div className="mb-1 text-[12px] uppercase text-ink-faint">After (a=max(0,z))</div>
+          <div className="flex h-14 items-end gap-px overflow-hidden rounded bg-barley-page">
+            {after.map((v, i) => (
+              <div key={i} className="flex-1" style={{ height: `${Math.max((Math.abs(v) / max) * 100, 4)}%`, background: v > 0 ? "#EA580C" : "rgba(185,28,28,0.18)" }} />
+            ))}
           </div>
         </div>
       </div>
-      <div className="rounded-lg border p-2 text-xs" style={{ borderColor: "var(--glass-border)", background: "var(--bg-panel)", color: "var(--text-2)" }}>
-        ReLU zeroed <strong style={{ color: pct > 65 ? "var(--warning)" : "var(--success)" }}>{dead}/{n}</strong> values ({pct.toFixed(1)}%).
+      <div className="rounded-lg border border-barley-linestrong bg-white p-2 text-xs text-ink-soft">
+        ReLU zeroed <strong className={pct > 65 ? "text-status-warning" : "text-status-success"}>{dead}/{n}</strong> values ({pct.toFixed(1)}%).
       </div>
     </div>
   );

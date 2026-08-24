@@ -1,8 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { apiClient } from "../../api/client";
 import { LayerInfo, ModelType, PredictionResult } from "../../types";
-import { Columns, Grid3X3, Mountain, Orbit, Play, Redo2, Undo2, X } from "lucide-react";
+import { Columns, Grid3X3, Mountain, Orbit, Play, Redo2, Undo2, X, ChevronDown } from "lucide-react";
 import { ArchitectureComparisonPage } from "../../pages/ArchitectureComparisonPage";
+import { PageHeader } from "@/design-system/components/PageHeader";
+import { NeuralButton } from "@/design-system/components/NeuralButton";
 
 type ProbView = "bars" | "radial" | "terrain";
 
@@ -18,7 +20,7 @@ const DISPLAY = 280;
 const INTERNAL = 560;
 const R = 120;
 const C = 2 * Math.PI * R;
-const COLORS: Record<ModelType, string> = { ann: "#f472b6", cnn: "#22d3ee", rnn: "#a855f7" };
+const COLORS: Record<ModelType, string> = { ann: "#0072B2", cnn: "#00806A", rnn: "#A64D85" };
 
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 
@@ -106,7 +108,7 @@ export default function PredictionMode() {
   const offset = C * (1 - conf);
   const probs = result?.probabilities ?? Array(10).fill(0);
   const topIdx = probs.reduce((best, p, i, arr) => (p > arr[best] ? i : best), 0);
-  const confColor = conf >= 0.9 ? "#10b981" : conf >= 0.7 ? color : conf >= 0.5 ? "#f59e0b" : "#f472b6";
+  const confColor = conf >= 0.9 ? "#15803D" : conf >= 0.7 ? color : conf >= 0.5 ? "#B45309" : "#B91C1C";
 
   const resetCanvas = useCallback(() => {
     const ctx = canvasRef.current?.getContext("2d");
@@ -362,15 +364,12 @@ export default function PredictionMode() {
 
   if (comparisonMode) {
     return (
-      <div className="h-full overflow-auto p-4">
-        <div className="max-w-[1450px] mx-auto space-y-3">
+      <div className="h-full overflow-auto">
+        <div className="page-shell [--shell-max:90rem] py-4 space-y-4">
           <div className="flex justify-end">
-            <button
-              onClick={() => setComparisonMode(false)}
-              className="h-9 px-3 rounded-lg border border-cyan-400/35 bg-cyan-500/10 text-cyan-200 text-xs"
-            >
+            <NeuralButton size="sm" onClick={() => setComparisonMode(false)}>
               Back To Single Model
-            </button>
+            </NeuralButton>
           </div>
           <ArchitectureComparisonPage />
         </div>
@@ -379,33 +378,42 @@ export default function PredictionMode() {
   }
 
   return (
-    <div className="h-full overflow-auto p-4 text-slate-100">
-      <div className="max-w-[1450px] mx-auto space-y-3">
-        <div className="sticky top-2 z-20 rounded-xl border border-cyan-400/15 bg-slate-900/80 backdrop-blur px-3 py-2 flex flex-wrap items-center justify-between gap-2">
-          <div className="flex gap-2" role="tablist" aria-label="Architecture selector">
-            {(["ann", "cnn", "rnn"] as ModelType[]).map((m) => (
-              <button key={m} role="tab" aria-selected={modelType === m} onClick={() => setModelType(m)}
-                className={`px-3 py-2 text-xs rounded-full border ${modelType === m ? "font-semibold" : "opacity-70"}`}
-                style={{ color: modelType === m ? COLORS[m] : "#cbd5e1", borderColor: modelType === m ? `${COLORS[m]}66` : "rgba(255,255,255,0.12)", background: modelType === m ? `${COLORS[m]}20` : "rgba(255,255,255,0.04)" }}>
-                {m.toUpperCase()}
-              </button>
-            ))}
-          </div>
-          <div className="text-xs flex items-center gap-3">
-            <span className="text-slate-400">Model: <span className="text-slate-200">{modelType.toUpperCase()}</span></span>
-            <span className={`h-2.5 w-2.5 rounded-full ${modelReady ? "bg-emerald-400 animate-pulse" : "bg-rose-400"}`} />
-            {latency != null && <span className="font-mono text-slate-400">~{latency.toFixed(0)}ms</span>}
-            <button
-              onClick={() => setComparisonMode(true)}
-              className="h-7 px-2 rounded border border-cyan-400/35 bg-cyan-500/10 text-cyan-200 text-[11px]"
-            >
-              Compare Architectures
-            </button>
-          </div>
+    <div className="h-full overflow-auto text-ink">
+      <div className="page-shell [--shell-max:90rem] py-4 space-y-4">
+        <div className="sticky top-0 z-20 -mx-1 border-b border-barley-line bg-barley-page/85 px-1 pb-2 backdrop-blur-md">
+          <PageHeader
+            title="Prediction"
+            subtitle="Draw a digit and watch each architecture read it."
+            actions={
+              <>
+                {latency != null && (
+                  <span className="font-mono text-xs text-ink-mute">~{latency.toFixed(0)}ms</span>
+                )}
+                <span
+                  className={`h-2.5 w-2.5 rounded-full ${modelReady ? "bg-status-success" : "bg-arch-rnn"}`}
+                  role="status"
+                  aria-label={modelReady ? "Model ready" : "Model loading"}
+                />
+                <NeuralButton size="sm" onClick={() => setComparisonMode(true)}>
+                  Compare Architectures
+                </NeuralButton>
+              </>
+            }
+          >
+            <div className="flex gap-2" role="tablist" aria-label="Architecture selector">
+              {(["ann", "cnn", "rnn"] as ModelType[]).map((m) => (
+                <button key={m} role="tab" aria-selected={modelType === m} onClick={() => setModelType(m)}
+                  className={`px-3 py-1.5 text-xs rounded-full border transition-colors ${modelType === m ? "font-semibold" : "opacity-70 hover:opacity-100"}`}
+                  style={{ color: modelType === m ? COLORS[m] : "#79716B", borderColor: modelType === m ? `${COLORS[m]}66` : "#D8CFC0", background: modelType === m ? `${COLORS[m]}14` : "transparent" }}>
+                  {m.toUpperCase()}
+                </button>
+              ))}
+            </div>
+          </PageHeader>
         </div>
 
-        <div className="rounded-2xl border border-cyan-400/10 bg-slate-950/70 p-4">
-          <div className="grid grid-cols-1 xl:grid-cols-[330px_1fr_330px] gap-4 items-center">
+        <div className="rounded-2xl border border-barley-linestrong bg-barley-page p-4">
+          <div className="grid grid-cols-1 xl:grid-cols-[minmax(280px,340px)_minmax(0,1fr)_minmax(280px,340px)] gap-4 items-center">
             <div className="space-y-3">
               <div className="relative mx-auto" style={{ width: DISPLAY, height: DISPLAY }}>
                 <canvas ref={canvasRef} width={INTERNAL} height={INTERNAL}
@@ -413,24 +421,24 @@ export default function PredictionMode() {
                   role="img" aria-label="Drawing canvas for digit prediction"
                   style={{ width: DISPLAY, height: DISPLAY, borderColor: `${color}66`, boxShadow: `inset 0 0 35px ${color}22, 0 0 20px ${color}22` }}
                   onMouseDown={startDraw} onMouseMove={onDraw} onMouseUp={stopDraw} onMouseLeave={stopDraw} />
-                {showGrid && <div className="absolute inset-0 rounded-2xl pointer-events-none" style={{ backgroundImage: "linear-gradient(to right, rgba(255,255,255,0.04) 1px, transparent 1px),linear-gradient(to bottom, rgba(255,255,255,0.04) 1px, transparent 1px)", backgroundSize: "calc(100% / 28) calc(100% / 28)" }} />}
+                {showGrid && <div className="absolute inset-0 rounded-2xl pointer-events-none" style={{ backgroundImage: "linear-gradient(to right, rgba(28,25,23,0.05) 1px, transparent 1px),linear-gradient(to bottom, rgba(28,25,23,0.05) 1px, transparent 1px)", backgroundSize: "calc(100% / 28) calc(100% / 28)" }} />}
               </div>
 
               <div className="w-[280px] mx-auto space-y-2">
                 <div className="flex gap-2">
-                  <button onClick={undoOne} disabled={undo.length === 0} className="h-9 w-9 rounded border border-white/15 bg-white/5 disabled:opacity-35"><Undo2 size={16} className="mx-auto" /></button>
-                  <button onClick={redoOne} disabled={redo.length === 0} className="h-9 w-9 rounded border border-white/15 bg-white/5 disabled:opacity-35"><Redo2 size={16} className="mx-auto" /></button>
-                  <button onClick={clear} className="h-9 w-9 rounded border border-rose-400/35 bg-rose-500/10 text-rose-300"><X size={16} className="mx-auto" /></button>
-                  <button onClick={() => setShowGrid((v) => !v)} className={`h-9 w-9 rounded border ${showGrid ? "border-cyan-400/45 bg-cyan-500/15 text-cyan-300" : "border-white/15 bg-white/5"}`}><Grid3X3 size={16} className="mx-auto" /></button>
-                  <button onClick={() => void doPredict()} className="h-9 flex-1 rounded border border-cyan-400/45 bg-cyan-500/15 text-cyan-200 text-xs inline-flex items-center justify-center gap-1"><Play size={14} /> Predict</button>
+                  <button onClick={undoOne} disabled={undo.length === 0} aria-label="Undo stroke" title="Undo" className="h-9 w-9 grid place-items-center rounded-md border border-barley-linestrong bg-barley-sunken hover:bg-barley-wash disabled:opacity-35 disabled:cursor-not-allowed"><Undo2 size={16} /></button>
+                  <button onClick={redoOne} disabled={redo.length === 0} aria-label="Redo stroke" title="Redo" className="h-9 w-9 grid place-items-center rounded-md border border-barley-linestrong bg-barley-sunken hover:bg-barley-wash disabled:opacity-35 disabled:cursor-not-allowed"><Redo2 size={16} /></button>
+                  <button onClick={clear} aria-label="Clear canvas" title="Clear" className="h-9 w-9 grid place-items-center rounded-md border border-status-danger/35 bg-status-danger/5 hover:bg-status-danger/15 text-status-danger active:scale-95"><X size={16} /></button>
+                  <button onClick={() => setShowGrid((v) => !v)} aria-label="Toggle grid overlay" aria-pressed={showGrid} title="Grid" className={`h-9 w-9 grid place-items-center rounded-md border ${showGrid ? "border-ember-600/40 bg-ember-600/15 text-ember-700" : "border-barley-linestrong bg-barley-sunken hover:bg-barley-wash"}`}><Grid3X3 size={16} /></button>
+                  <button onClick={() => void doPredict()} className="h-9 flex-1 rounded-md border border-ember-600/40 bg-ember-600/15 hover:bg-ember-600/25 active:scale-[0.98] text-ember-700 text-xs inline-flex items-center justify-center gap-1"><Play size={14} /> Predict</button>
                 </div>
-                <div className="text-[11px] text-slate-400 flex justify-between">
+                <div className="text-[12px] text-ink-mute flex justify-between">
                   <span>Undo {undo.length}/10</span>
-                  <button className="underline decoration-dotted" onClick={() => setAutoPredict((v) => !v)}>Auto {autoPredict ? "on" : "off"}</button>
+                  <button className="underline decoration-dotted" aria-pressed={autoPredict} onClick={() => setAutoPredict((v) => !v)}>Auto {autoPredict ? "on" : "off"}</button>
                 </div>
                 <div className="grid grid-cols-10 gap-1">
                   {Array.from({ length: 10 }, (_, i) => (
-                    <button key={i} className="h-7 rounded border border-white/10 bg-white/5 text-xs font-mono hover:border-cyan-400/35"
+                    <button key={i} aria-label={`Load sample digit ${i}`} className="h-7 rounded border border-barley-line bg-white text-xs font-mono hover:border-ember-600/50 hover:text-ember-700"
                       onClick={() => { const px = samples[String(i)]; if (Array.isArray(px)) loadPixels(px); }}>{i}</button>
                   ))}
                 </div>
@@ -438,19 +446,19 @@ export default function PredictionMode() {
             </div>
 
             <div className="hidden md:flex items-center justify-center">
-              <div className="text-xs text-slate-400">Neural signal path activates on each inference</div>
+              <div className="text-xs text-ink-mute">Neural signal path activates on each inference</div>
             </div>
 
             <div className="mx-auto relative w-[300px] h-[300px]">
               <svg className="absolute inset-0" viewBox="0 0 300 300">
                 <g transform="translate(150,150)">
-                  <circle r={R} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="6" />
+                  <circle r={R} fill="none" stroke="rgba(28,25,23,0.10)" strokeWidth="6" />
                   <circle r={R} fill="none" stroke={confColor} strokeWidth="6" strokeDasharray={C} strokeDashoffset={offset} strokeLinecap="round" transform="rotate(-90)"
                     style={{ transition: "stroke-dashoffset 320ms ease-out" }} />
                 </g>
               </svg>
               <div className="absolute inset-0 grid place-items-center text-center">
-                <div className={`text-[150px] font-bold leading-none ${isPredicting ? "animate-pulse" : ""}`} style={{ color, textShadow: `0 0 30px ${color}66` }}>
+                <div className={`text-[150px] font-bold leading-none ${isPredicting ? "animate-pulse" : ""}`} style={{ color }}>
                   {error ? "!" : result ? result.prediction : "?"}
                 </div>
                 <div className="text-sm font-medium" style={{ color: confColor }}>
@@ -461,23 +469,23 @@ export default function PredictionMode() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-cyan-400/10 bg-slate-900/60 p-4">
+        <div className="rounded-2xl border border-barley-linestrong bg-white p-4">
           <div className="flex items-center justify-between mb-3">
-            <div className="text-sm font-semibold text-cyan-200">Probability Landscape</div>
+            <div className="text-sm font-semibold text-ember-700">Probability Landscape</div>
             <div className="flex gap-1">
-              <button onClick={() => setProbView("bars")} className={`h-8 px-2 rounded border ${probView === "bars" ? "border-cyan-400/45 bg-cyan-500/15" : "border-white/10 bg-white/5"}`}><Columns size={14} /></button>
-              <button onClick={() => setProbView("radial")} className={`h-8 px-2 rounded border ${probView === "radial" ? "border-cyan-400/45 bg-cyan-500/15" : "border-white/10 bg-white/5"}`}><Orbit size={14} /></button>
-              <button onClick={() => setProbView("terrain")} className={`h-8 px-2 rounded border ${probView === "terrain" ? "border-cyan-400/45 bg-cyan-500/15" : "border-white/10 bg-white/5"}`}><Mountain size={14} /></button>
+              <button onClick={() => setProbView("bars")} aria-label="Bar view" aria-pressed={probView === "bars"} className={`h-8 w-9 grid place-items-center rounded-md border ${probView === "bars" ? "border-ember-600/40 bg-ember-600/15 text-ember-700" : "border-barley-linestrong bg-barley-sunken hover:bg-barley-wash text-ink-mute"}`}><Columns size={14} /></button>
+              <button onClick={() => setProbView("radial")} aria-label="Radial view" aria-pressed={probView === "radial"} className={`h-8 w-9 grid place-items-center rounded-md border ${probView === "radial" ? "border-ember-600/40 bg-ember-600/15 text-ember-700" : "border-barley-linestrong bg-barley-sunken hover:bg-barley-wash text-ink-mute"}`}><Orbit size={14} /></button>
+              <button onClick={() => setProbView("terrain")} aria-label="Terrain view" aria-pressed={probView === "terrain"} className={`h-8 w-9 grid place-items-center rounded-md border ${probView === "terrain" ? "border-ember-600/40 bg-ember-600/15 text-ember-700" : "border-barley-linestrong bg-barley-sunken hover:bg-barley-wash text-ink-mute"}`}><Mountain size={14} /></button>
             </div>
           </div>
 
           {probView === "bars" && (
             <div className="h-[180px] grid grid-cols-10 gap-2 items-end">
               {probs.map((p, i) => (
-                <div key={i} className="relative h-full rounded-md bg-white/5 border border-white/5 overflow-hidden">
+                <div key={i} className="relative h-full rounded-md bg-barley-sunken border border-barley-line overflow-hidden">
                   <div className="absolute bottom-0 left-0 right-0 origin-bottom transition-transform duration-300"
                     style={{ height: "100%", transform: `scaleY(${Math.max(0.02, p)})`, background: i === topIdx ? color : `${color}99`, boxShadow: i === topIdx ? `0 0 18px ${color}66` : "none" }} />
-                  <div className="absolute bottom-1 inset-x-0 text-center text-[11px] font-mono">{i}</div>
+                  <div className="absolute bottom-1 inset-x-0 text-center text-[12px] font-mono">{i}</div>
                 </div>
               ))}
             </div>
@@ -492,7 +500,7 @@ export default function PredictionMode() {
                     const len = 26 + p * 65;
                     return <line key={i} x1={0} y1={0} x2={Math.cos(a) * len} y2={Math.sin(a) * len} stroke={i === topIdx ? color : `${color}66`} strokeWidth={i === topIdx ? 5 : 3} />;
                   })}
-                  <circle r={22} fill="rgba(255,255,255,0.04)" stroke={`${color}66`} />
+                  <circle r={22} fill="rgba(28,25,23,0.04)" stroke={`${color}66`} />
                   <text x="0" y="1" fill={color} fontSize="18" textAnchor="middle" dominantBaseline="middle">{result?.prediction ?? "?"}</text>
                 </g>
               </svg>
@@ -505,43 +513,46 @@ export default function PredictionMode() {
                 <div key={i} className="relative w-8">
                   <div className="absolute bottom-0 w-8 rounded-t-sm transition-all duration-300"
                     style={{ height: Math.max(4, p * 140), background: `linear-gradient(to top, ${color}55, ${color})`, boxShadow: i === topIdx ? `0 0 18px ${color}66` : "none", transform: `rotateX(20deg)` }} />
-                  <div className="absolute -bottom-5 w-full text-center text-[11px] font-mono">{i}</div>
+                  <div className="absolute -bottom-5 w-full text-center text-[12px] font-mono">{i}</div>
                 </div>
               ))}
             </div>
           )}
         </div>
 
-        <div className="rounded-xl border border-cyan-400/10 bg-slate-900/60 overflow-hidden">
-          <button onClick={() => setTraceOpen((v) => !v)} className="w-full h-12 px-4 flex items-center justify-between text-sm">
-            <span className="text-cyan-200">{traceOpen ? "▼" : "▶"} What the network saw</span>
-            <span className="text-xs text-slate-400">Layer-by-layer breakdown</span>
+        <div className="rounded-xl border border-barley-linestrong bg-white overflow-hidden">
+          <button onClick={() => setTraceOpen((v) => !v)} aria-expanded={traceOpen} className="w-full h-12 px-4 flex items-center justify-between text-sm">
+            <span className="text-ember-700 inline-flex items-center gap-1">
+              <ChevronDown size={14} className={`transition-transform duration-200 ${traceOpen ? "" : "-rotate-90"}`} />
+              What the network saw
+            </span>
+            <span className="text-xs text-ink-mute">Layer-by-layer breakdown</span>
           </button>
           {traceOpen && (
-            <div className="p-4 border-t border-white/10">
+            <div className="p-4 border-t border-barley-line">
               {modelType === "ann" && annActs.length > 0 && (
-                <div className="grid grid-cols-32 gap-[2px]">
-                  {annActs.map((a, i) => <div key={i} className="h-5 rounded-[2px]" style={{ background: `rgba(34,211,238,${0.1 + clamp01(a) * 0.9})` }} />)}
+                <div className="grid gap-[2px]" style={{ gridTemplateColumns: "repeat(32, minmax(0, 1fr))" }}>
+                  {annActs.map((a, i) => <div key={i} className="h-5 rounded-[2px]" style={{ background: `rgba(194,65,12,${0.1 + clamp01(a) * 0.9})` }} />)}
                 </div>
               )}
-              {modelType === "cnn" && <div className="text-xs text-slate-300">Top filters: {(result?.explanation?.active_filters ?? []).slice(0, 3).map((f: any) => `${f.layer}/${f.filter}`).join(", ") || "n/a"}</div>}
-              {modelType === "rnn" && <div className="text-xs text-slate-300">Key timesteps: {(result?.explanation?.timestep_importance ?? []).slice(0, 8).join(", ") || "n/a"}</div>}
+              {modelType === "cnn" && <div className="text-xs text-ink-soft">Top filters: {(result?.explanation?.active_filters ?? []).slice(0, 3).map((f: any) => `${f.layer}/${f.filter}`).join(", ") || "n/a"}</div>}
+              {modelType === "rnn" && <div className="text-xs text-ink-soft">Key timesteps: {(result?.explanation?.timestep_importance ?? []).slice(0, 8).join(", ") || "n/a"}</div>}
             </div>
           )}
         </div>
 
-        <div className="rounded-xl border border-cyan-400/10 bg-slate-950/50 p-3">
-          <div className="text-xs text-slate-400 mb-2">History</div>
+        <div className="rounded-xl border border-barley-linestrong bg-barley-page p-3">
+          <div className="text-xs text-ink-mute mb-2">History</div>
           <div className="flex gap-2 overflow-x-auto pb-1" role="list">
             {history.map((h) => (
-              <button key={h.id} role="listitem" className="shrink-0 w-[62px] text-center"
+              <button key={h.id} role="listitem" aria-label={`Restore prediction ${h.result.prediction}`} className="shrink-0 w-[62px] text-center"
                 onClick={() => { setModelType(h.modelType); loadPixels(h.pixels); }}>
-                <img src={h.thumbnail} className="w-14 h-14 rounded-md border border-white/15 bg-black mx-auto" />
-                <div className="text-[11px] mt-1" style={{ color: COLORS[h.modelType] }}>{h.result.prediction}</div>
-                <div className="text-[10px] text-slate-400">{Math.round(h.result.confidence * 100)}%</div>
+                <img src={h.thumbnail} alt="" className="w-14 h-14 rounded-md border border-barley-linestrong bg-ink mx-auto" />
+                <div className="text-[12px] mt-1" style={{ color: COLORS[h.modelType] }}>{h.result.prediction}</div>
+                <div className="text-[12px] text-ink-mute">{Math.round(h.result.confidence * 100)}%</div>
               </button>
             ))}
-            {history.length === 0 && <div className="text-xs text-slate-500 py-4">No predictions yet.</div>}
+            {history.length === 0 && <div className="text-xs text-ink-faint py-4">No predictions yet.</div>}
           </div>
         </div>
       </div>

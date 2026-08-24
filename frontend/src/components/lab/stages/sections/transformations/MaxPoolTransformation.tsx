@@ -1,3 +1,4 @@
+ï»¿import type { ReactNode } from "react";
 import type { StageActivation, StageDefinition } from "../../../../../types/pipeline";
 
 interface Props {
@@ -17,25 +18,25 @@ export function MaxPoolTransformation({ stage, activation }: Props) {
   return (
     <div className="space-y-3">
       <div className="grid gap-3 md:grid-cols-3">
-        <Card title="Before" value={`${inH}×${inW}`} />
-        <Card title="Operation" value="max(2×2)" />
-        <Card title="After" value={`${outH}×${outW}`} />
+        <Card title="Before" value={<>{inH}&times;{inW}</>} />
+        <Card title="Operation" value={<>max(2&times;2)</>} />
+        <Card title="After" value={<>{outH}&times;{outW}</>} />
       </div>
-      <p className="text-xs" style={{ color: "var(--text-3)" }}>
-        Max pooling kept strongest local responses and reduced spatial detail by about {reduction.toFixed(1)}×.
+      <p className="text-xs text-ink-mute">
+        Max pooling kept strongest local responses and reduced spatial detail by about {reduction.toFixed(1)}&times;.
       </p>
-      <p className="text-[10px]" style={{ color: "var(--text-4)" }}>
-        {JSON.stringify(stage.inputShape)} ? {JSON.stringify(stage.outputShape)}
+      <p className="text-[12px] text-ink-faint">
+        {JSON.stringify(stage.inputShape)} &rarr; {JSON.stringify(stage.outputShape)}
       </p>
     </div>
   );
 }
 
-function Card({ title, value }: { title: string; value: string }) {
+function Card({ title, value }: { title: string; value: ReactNode }) {
   return (
-    <div className="rounded-lg border p-3 text-center" style={{ borderColor: "var(--glass-border)", background: "var(--bg-panel)" }}>
-      <div className="text-[10px] uppercase" style={{ color: "var(--text-4)" }}>{title}</div>
-      <div className="text-sm font-mono" style={{ color: "var(--text-1)" }}>{value}</div>
+    <div className="rounded-lg border border-barley-linestrong bg-white p-3 text-center">
+      <div className="text-[12px] uppercase text-ink-faint">{title}</div>
+      <div className="text-sm font-mono text-ink">{value}</div>
     </div>
   );
 }

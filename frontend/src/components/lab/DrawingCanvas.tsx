@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+﻿import { useCallback, useEffect, useRef } from "react";
 import { useLabStore } from "../../store/labStore";
 
 const DISPLAY = 280;
@@ -72,7 +72,7 @@ export function DrawingCanvas() {
 
   return (
     <div className="space-y-2">
-      <div className="relative h-[280px] w-[280px] rounded-2xl border border-cyan-400/35 bg-black shadow-[inset_0_0_34px_rgba(34,211,238,0.16)]">
+      <div className="relative h-[280px] w-[280px] rounded-2xl border border-barley-linestrong bg-ink shadow-[inset_0_0_34px_rgba(194,65,12,0.22)]">
         <canvas
           ref={canvasRef}
           width={INTERNAL}
@@ -99,7 +99,7 @@ export function DrawingCanvas() {
           className="pointer-events-none absolute inset-0 rounded-2xl"
           style={{
             backgroundImage:
-              "linear-gradient(to right, rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.04) 1px, transparent 1px)",
+              "linear-gradient(to right, rgba(255,255,255,0.06) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.06) 1px, transparent 1px)",
             backgroundSize: "calc(100% / 28) calc(100% / 28)",
           }}
         />
@@ -107,7 +107,7 @@ export function DrawingCanvas() {
       <button
         type="button"
         onClick={clear}
-        className="h-8 rounded-lg border border-rose-400/40 bg-rose-500/10 px-3 text-xs text-rose-200"
+        className="h-8 rounded-lg border border-status-danger/35 bg-status-danger/5 px-3 text-xs text-status-danger hover:bg-status-danger/15 active:scale-[0.98]"
       >
         Clear
       </button>

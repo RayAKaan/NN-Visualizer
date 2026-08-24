@@ -1,6 +1,7 @@
+﻿import type { Architecture, Dataset } from "../../types/pipeline";
+import { PageHeader } from "@/design-system/components/PageHeader";
+import { NeuralButton } from "@/design-system/components/NeuralButton";
 import { useLabStore } from "../../store/labStore";
-import type { Architecture, Dataset } from "../../types/pipeline";
-import { NeuralPanel } from "@/design-system/components/NeuralPanel";
 
 const ARCHES: Architecture[] = ["ANN", "CNN", "RNN"];
 const DATASETS: Dataset[] = ["mnist", "catdog"];
@@ -13,49 +14,45 @@ export function LabHeader() {
   const setDataset = useLabStore((s) => s.setDataset);
 
   return (
-    <NeuralPanel variant="base" className="sticky top-0 z-30 flex h-14 items-center !rounded-none !border-l-0 !border-r-0 !border-t-0 px-4 shadow-sm">
-      <div className="mx-auto flex h-full w-full max-w-6xl items-center justify-between gap-3">
-        <div className="flex items-center gap-6">
-          <div className="sim-title text-lg tracking-tight">Neurofluxion Lab</div>
-          <div className="flex items-center gap-2">
-            {ARCHES.map((arch) => {
-              const active = arch === architecture;
-              return (
-                <button
-                  key={arch}
-                  type="button"
-                  disabled={isRunning}
-                  onClick={() => setArchitecture(arch)}
-                  className={`neural-button !h-8 ${active ? "neural-button-primary" : "neural-button-secondary"}`}
-                  style={{ opacity: isRunning ? 0.6 : 1 }}
-                >
-                  {arch}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 text-sm text-slate-300">
-          <span className="opacity-75">Dataset</span>
-          <div className="flex items-center gap-1">
-            {DATASETS.map((item) => {
-              const active = item === dataset;
-              return (
-                <button
-                  key={item}
-                  type="button"
-                  disabled={isRunning}
-                  onClick={() => setDataset(item)}
-                  className={`neural-button !h-8 ${active ? "neural-button-primary" : "neural-button-secondary"}`}
-                >
-                  {item === "mnist" ? "MNIST" : "Cat/Dog"}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+    <header className="border-b border-barley-line bg-barley-page/85 backdrop-blur-md">
+      <div className="page-shell [--shell-max:72rem] py-3">
+        <PageHeader
+          title="Neurofluxion Lab"
+          subtitle="Follow one signal through every layer — forward, then back."
+          actions={
+            <>
+              <div className="flex items-center gap-2" role="group" aria-label="Architecture">
+                <span className="text-xs text-ink-faint">Arch</span>
+                {ARCHES.map((arch) => (
+                  <NeuralButton
+                    key={arch}
+                    size="sm"
+                    variant={arch === architecture ? "primary" : "secondary"}
+                    disabled={isRunning}
+                    onClick={() => setArchitecture(arch)}
+                  >
+                    {arch}
+                  </NeuralButton>
+                ))}
+              </div>
+              <div className="flex items-center gap-2" role="group" aria-label="Dataset">
+                <span className="text-xs text-ink-faint">Data</span>
+                {DATASETS.map((item) => (
+                  <NeuralButton
+                    key={item}
+                    size="sm"
+                    variant={item === dataset ? "primary" : "secondary"}
+                    disabled={isRunning}
+                    onClick={() => setDataset(item)}
+                  >
+                    {item === "mnist" ? "MNIST" : "Cat/Dog"}
+                  </NeuralButton>
+                ))}
+              </div>
+            </>
+          }
+        />
       </div>
-    </NeuralPanel>
+    </header>
   );
 }

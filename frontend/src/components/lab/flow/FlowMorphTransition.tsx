@@ -1,4 +1,4 @@
-import type { FlowSnapshot } from "../../../types/flow";
+﻿import type { FlowSnapshot } from "../../../types/flow";
 
 interface Props {
   from: FlowSnapshot;
@@ -19,15 +19,14 @@ export function FlowMorphTransition({ from, to, isActive }: Props) {
         className="h-6 rounded-full"
         style={{
           width: compressing ? 8 : expanding ? 20 : 12,
-          background: isActive ? "var(--fwd)" : "var(--text-4)",
+          background: isActive ? "#0072B2" : "#79716B",
           opacity: isActive ? 0.35 : 0.15,
           transition: "all .2s ease",
         }}
       />
       {(compressing || expanding) && (
         <span
-          className="absolute -right-5 text-[8px] font-mono"
-          style={{ color: compressing ? "var(--warning)" : "var(--info)" }}
+          className={`absolute -right-5 text-[12px] font-mono ${compressing ? "text-status-warning" : "text-arch-ann"}`}
         >
           {compressing ? "-" : "+"}
           {Math.abs((ratio - 1) * 100).toFixed(0)}%

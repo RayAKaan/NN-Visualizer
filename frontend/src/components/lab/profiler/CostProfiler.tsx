@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+﻿import { useMemo } from "react";
 import type { LayerProfile, NetworkProfile } from "../../../types/profiler";
 import { useLabStore } from "../../../store/labStore";
 
@@ -18,15 +18,15 @@ function formatBytes(n: number): string {
 
 function CostRibbon({ layer, isBottleneck }: { layer: LayerProfile; isBottleneck: boolean }) {
   return (
-    <div className="flex items-center gap-2 py-1 text-[10px]">
-      <span className="w-24 truncate" style={{ color: isBottleneck ? "var(--warning)" : "var(--text-3)" }}>
+    <div className="flex items-center gap-2 py-1 text-[12px]">
+      <span className={`w-24 truncate ${isBottleneck ? "text-status-warning" : "text-ink-mute"}`}>
         {isBottleneck ? "! " : ""}
         {layer.stageId}
       </span>
-      <div className="h-2 flex-1 overflow-hidden rounded" style={{ background: "var(--bg-void)" }}>
-        <div className="h-full" style={{ width: `${layer.flopPercent}%`, background: "var(--fwd)" }} />
+      <div className="h-2 flex-1 overflow-hidden rounded bg-barley-page">
+        <div className="h-full" style={{ width: `${layer.flopPercent}%`, background: "#0072B2" }} />
       </div>
-      <span className="w-12 text-right font-mono" style={{ color: "var(--text-4)" }}>
+      <span className="w-12 text-right font-mono text-ink-faint">
         {layer.inferenceTimeMs.toFixed(1)}ms
       </span>
     </div>
@@ -105,13 +105,13 @@ export function CostProfiler() {
   if (!profile) return null;
 
   return (
-    <section className="mt-4 rounded-2xl p-3" style={{ background: "var(--bg-card)", border: "1px solid var(--glass-border)" }}>
-      <h3 className="text-sm font-semibold" style={{ color: "var(--text-1)" }}>Computational Cost Profile</h3>
+    <section className="mt-4 rounded-2xl border border-barley-linestrong bg-white p-3">
+      <h3 className="text-sm font-semibold text-ink">Computational Cost Profile</h3>
       <div className="mt-2 grid grid-cols-2 gap-2 text-xs md:grid-cols-4">
-        <div className="rounded-lg p-2" style={{ background: "var(--bg-panel)" }}>FLOPs: {formatNumber(profile.totalFlops)}</div>
-        <div className="rounded-lg p-2" style={{ background: "var(--bg-panel)" }}>Memory: {formatBytes(profile.totalMemoryBytes)}</div>
-        <div className="rounded-lg p-2" style={{ background: "var(--bg-panel)" }}>Params: {formatNumber(profile.totalParams)}</div>
-        <div className="rounded-lg p-2" style={{ background: "var(--bg-panel)" }}>Time: {profile.totalInferenceMs.toFixed(1)}ms</div>
+        <div className="rounded-lg bg-barley-page p-2">FLOPs: {formatNumber(profile.totalFlops)}</div>
+        <div className="rounded-lg bg-barley-page p-2">Memory: {formatBytes(profile.totalMemoryBytes)}</div>
+        <div className="rounded-lg bg-barley-page p-2">Params: {formatNumber(profile.totalParams)}</div>
+        <div className="rounded-lg bg-barley-page p-2">Time: {profile.totalInferenceMs.toFixed(1)}ms</div>
       </div>
 
       <div className="mt-3 space-y-1">

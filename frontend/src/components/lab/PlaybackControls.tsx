@@ -1,4 +1,4 @@
-import { useLabStore } from "../../store/labStore";
+﻿import { useLabStore } from "../../store/labStore";
 
 const SPEEDS = [0.5, 1, 2, 4];
 
@@ -34,9 +34,9 @@ export function PlaybackControls() {
   const atBackwardStart = currentBackwardStageIndex < 0;
 
   return (
-    <div className="fixed bottom-[70px] left-0 right-0 z-30 px-4 md:bottom-4">
-      <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-700/70 bg-slate-950/85 px-3 py-2 backdrop-blur-xl">
-        <div className="text-xs text-slate-400">
+    <div className="fixed bottom-[132px] left-0 right-0 z-30 px-4 md:bottom-[76px]">
+      <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 rounded-2xl border border-ink/8 bg-barley-page/75 px-3 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.6),0_1px_2px_rgba(28,25,23,0.04),0_4px_16px_rgba(28,25,23,0.07)] backdrop-blur-xl">
+        <div className="text-xs text-ink-mute">
           {passDirection === "forward"
             ? `Stage ${Math.max(0, currentStageIndex + 1)} / ${stages.length}`
             : `Backward ${Math.max(0, currentBackwardStageIndex + 1)} / ${backwardStages.length}`}
@@ -73,7 +73,7 @@ export function PlaybackControls() {
         </div>
 
         <div className="hidden items-center gap-1 sm:flex">
-          <span className="text-xs text-slate-500">Speed</span>
+          <span className="text-xs text-ink-faint">Speed</span>
           {SPEEDS.map((value) => (
             <button
               key={value}
@@ -81,9 +81,9 @@ export function PlaybackControls() {
               onClick={() => setSpeed(value)}
               className="rounded-md border px-2 py-1 text-xs"
               style={{
-                borderColor: speed === value ? "rgba(34,211,238,0.6)" : "rgba(148,163,184,0.35)",
-                background: speed === value ? "rgba(34,211,238,0.2)" : "rgba(15,23,42,0.5)",
-                color: speed === value ? "#67e8f9" : "#94a3b8",
+                borderColor: speed === value ? "rgba(194,65,12,0.5)" : "#D8CFC0",
+                background: speed === value ? "rgba(234,88,12,0.12)" : "transparent",
+                color: speed === value ? "#9A3412" : "#79716B",
               }}
             >
               {value}x

@@ -1,4 +1,4 @@
-import { MathRenderer } from "../MathRenderer";
+﻿import { MathRenderer } from "../MathRenderer";
 import type { EquationSet, StageActivation, StageDefinition } from "../../../types/pipeline";
 
 interface Props {
@@ -22,20 +22,20 @@ function liveLatex(stage: StageDefinition, activation: StageActivation): string 
 
 export function StageMathPanel({ equations, activation, stage }: Props) {
   return (
-    <div className="rounded-xl border border-violet-400/20 bg-violet-950/20 p-3">
-      <div className="text-[11px] font-semibold uppercase tracking-wide text-violet-300/80">Mathematics</div>
-      <div className="mt-2 rounded-md bg-black/35 p-3">
+    <div className="rounded-xl border border-arch-rnn/40 bg-arch-rnn/10 p-3">
+      <div className="text-[12px] font-semibold uppercase tracking-wide text-arch-rnn">Mathematics</div>
+      <div className="mt-2 rounded-md bg-ink/45 p-3">
         <MathRenderer latex={equations.primary} displayMode />
       </div>
-      {equations.explanation && <p className="mt-1 text-xs text-slate-400">{equations.explanation}</p>}
+      {equations.explanation && <p className="mt-1 text-xs text-ink-mute">{equations.explanation}</p>}
       {activation && (
         <>
-          <div className="mt-2 rounded-md border border-emerald-400/20 bg-emerald-900/15 p-3">
+          <div className="mt-2 rounded-md border border-status-success/40 bg-status-success/12 p-3">
             <MathRenderer latex={liveLatex(stage, activation)} displayMode />
           </div>
-          <div className="mt-2 flex flex-wrap gap-3 text-xs text-slate-400">
-            <span>Params: <span className="font-mono text-slate-300">{activation.metadata.paramCount}</span></span>
-            <span>Compute: <span className="font-mono text-slate-300">{activation.metadata.computeTimeMs.toFixed(2)}ms</span></span>
+          <div className="mt-2 flex flex-wrap gap-3 text-xs text-ink-mute">
+            <span>Params: <span className="font-mono text-ink-soft">{activation.metadata.paramCount}</span></span>
+            <span>Compute: <span className="font-mono text-ink-soft">{activation.metadata.computeTimeMs.toFixed(2)}ms</span></span>
           </div>
         </>
       )}

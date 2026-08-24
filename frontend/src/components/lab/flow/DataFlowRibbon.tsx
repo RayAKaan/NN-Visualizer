@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+﻿import { useMemo } from "react";
 import { useDataFlow } from "../../../hooks/useDataFlow";
 import { useLabStore } from "../../../store/labStore";
 import { FlowDimensionLabel } from "./FlowDimensionLabel";
@@ -21,14 +21,9 @@ export function DataFlowRibbon() {
 
   return (
     <aside
-      className="fixed bottom-[84px] left-2 top-[72px] z-10 hidden w-[72px] overflow-y-auto rounded-xl p-2 lg:block"
-      style={{
-        background: "var(--glass-bg)",
-        border: "1px solid var(--glass-border)",
-        backdropFilter: "blur(10px)",
-      }}
+      className="fixed bottom-[84px] left-2 top-[72px] z-10 hidden w-[72px] overflow-y-auto rounded-xl border border-ink/10 bg-white/88 p-2 backdrop-blur-lg lg:block"
     >
-      <div className="mb-2 text-center text-[9px] font-semibold uppercase tracking-wider" style={{ color: "var(--text-4)" }}>
+      <div className="mb-2 text-center text-[12px] font-semibold uppercase tracking-wider text-ink-faint">
         Flow
       </div>
       {visible.map((snapshot, i) => {

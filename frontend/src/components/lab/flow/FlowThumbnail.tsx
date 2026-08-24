@@ -1,4 +1,4 @@
-import type { FlowSnapshot } from "../../../types/flow";
+﻿import type { FlowSnapshot } from "../../../types/flow";
 
 interface Props {
   snapshot: FlowSnapshot;
@@ -15,7 +15,7 @@ export function FlowThumbnail({ snapshot, isActive, onClick }: Props) {
       style={{
         width: isActive ? 52 : 40,
         height: isActive ? 52 : 40,
-        border: isActive ? "2px solid var(--fwd)" : "1px solid var(--glass-border)",
+        border: isActive ? "2px solid #0072B2" : "1px solid rgba(28,25,23,0.09)",
       }}
       title={`${snapshot.stageId} (${snapshot.shape.join("x")})`}
     >
@@ -26,8 +26,8 @@ export function FlowThumbnail({ snapshot, isActive, onClick }: Props) {
         style={{ imageRendering: snapshot.thumbnail.width < 32 ? "pixelated" : "auto" }}
       />
       <div
-        className="absolute bottom-0 left-0 right-0 text-center text-[8px]"
-        style={{ background: "rgba(0,0,0,0.55)", color: "var(--text-4)" }}
+        className="absolute bottom-0 left-0 right-0 text-center text-[12px]"
+        style={{ background: "rgba(28,25,23,0.72)", color: "#FAF7F2" }}
       >
         {snapshot.dimensionality === "3d" ? "3D" : snapshot.dimensionality === "2d" ? "2D" : "1D"}
       </div>

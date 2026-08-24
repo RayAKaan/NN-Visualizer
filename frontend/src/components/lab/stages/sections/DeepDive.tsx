@@ -1,4 +1,4 @@
-import { StageVisualization } from "../StageVisualization";
+﻿import { StageVisualization } from "../StageVisualization";
 import type { Architecture, Dataset, StageActivation, StageDefinition } from "../../../../types/pipeline";
 
 interface Props {
@@ -10,7 +10,7 @@ interface Props {
 
 export function DeepDive({ stage, activation }: Props) {
   return (
-    <div className="mt-2 rounded-xl border p-3" style={{ borderColor: "var(--glass-border)", background: "var(--bg-panel)" }}>
+    <div className="mt-2 rounded-xl border border-barley-linestrong bg-white p-3">
       <StageVisualization stage={stage} activation={activation} />
     </div>
   );

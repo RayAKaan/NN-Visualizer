@@ -1,4 +1,4 @@
-import { useBindingContext } from "./MathVisualBinder";
+﻿import { useBindingContext } from "./MathVisualBinder";
 
 interface Props {
   latex: string;
@@ -20,7 +20,7 @@ export function BindableMath({ latex, variableId }: Props) {
       }}
       style={{
         cursor: enabled && variableId ? "pointer" : "default",
-        color: active ? "var(--fwd)" : "var(--math-text)",
+        color: active ? "#0072B2" : "#292524",
         textDecoration: active ? "underline" : "none",
       }}
       title={enabled && variableId ? `Variable ${variableId}` : undefined}

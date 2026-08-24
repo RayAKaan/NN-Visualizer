@@ -1,4 +1,4 @@
-interface Props {
+﻿interface Props {
   shape: number[];
   statistics: {
     sparsity: number;
@@ -9,7 +9,7 @@ interface Props {
 
 export function FlowDimensionLabel({ shape, statistics, isActive }: Props) {
   return (
-    <div className="mb-2 mt-1 text-center text-[8px]" style={{ color: isActive ? "var(--text-2)" : "var(--text-4)" }}>
+    <div className={`mb-2 mt-1 text-center text-[12px] ${isActive ? "text-ink-soft" : "text-ink-faint"}`}>
       <div>{shape.join("x")}</div>
       <div>{(statistics.sparsity * 100).toFixed(0)}% sparse</div>
     </div>

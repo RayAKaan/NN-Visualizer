@@ -1,4 +1,4 @@
-import type { StageActivation } from "../../../types/pipeline";
+﻿import type { StageActivation } from "../../../types/pipeline";
 
 interface ArchResult {
   prediction: { label: number | string; confidence: number; probs: number[] };
@@ -23,7 +23,7 @@ export function ComparisonInsight({ results }: Props) {
   const labelSet = new Set([results.ANN.prediction.label, results.CNN.prediction.label, results.RNN.prediction.label]);
 
   return (
-    <div className="border-t px-3 py-2 text-xs" style={{ borderColor: "var(--glass-border)", background: "var(--bg-panel)", color: "var(--text-2)" }}>
+    <div className="border-t border-barley-linestrong bg-white px-3 py-2 text-xs text-ink-soft">
       {labelSet.size === 1
         ? `All three agree on ${String(best[1].prediction.label)}. ${best[0]} is most confident (${best[1].prediction.confidence.toFixed(1)}%).`
         : `Architectures disagree. ${best[0]} is most confident (${best[1].prediction.confidence.toFixed(1)}%) on ${String(best[1].prediction.label)}.`}

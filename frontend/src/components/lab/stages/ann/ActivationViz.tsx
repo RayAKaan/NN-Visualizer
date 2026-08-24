@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+﻿import { useMemo } from "react";
 import type { StageActivation } from "../../../../types/pipeline";
 
 interface Props {
@@ -19,15 +19,15 @@ export function ActivationViz({ activation }: Props) {
   return (
     <div className="space-y-3">
       <div className="flex gap-2 text-xs">
-        <div className="rounded-lg border border-rose-400/30 bg-rose-500/10 px-2 py-1 text-rose-200">Zeroed: {stats.zeroed}</div>
-        <div className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-2 py-1 text-emerald-200">Passed: {stats.passed}</div>
+        <div className="rounded-lg border border-arch-rnn/40 bg-arch-rnn/12 px-2 py-1 text-arch-rnn">Zeroed: {stats.zeroed}</div>
+        <div className="rounded-lg border border-status-success/40 bg-status-success/12 px-2 py-1 text-status-success">Passed: {stats.passed}</div>
       </div>
       <div className="grid grid-cols-2 gap-2 text-xs">
         {input.map((v, i) => (
-          <div key={i} className="rounded border border-slate-700 bg-slate-900/40 px-2 py-1">
-            <span className="text-slate-400">{v.toFixed(3)}</span>
-            <span className="mx-1 text-slate-500">?</span>
-            <span className={output[i] === 0 ? "text-rose-300" : "text-emerald-300"}>{output[i].toFixed(3)}</span>
+          <div key={i} className="rounded border border-barley-linestrong bg-white px-2 py-1">
+            <span className="text-ink-mute">{v.toFixed(3)}</span>
+            <span className="mx-1 text-ink-faint">?</span>
+            <span className={output[i] === 0 ? "text-arch-rnn" : "text-status-success"}>{output[i].toFixed(3)}</span>
           </div>
         ))}
       </div>

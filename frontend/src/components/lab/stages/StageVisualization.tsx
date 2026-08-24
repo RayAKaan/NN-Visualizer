@@ -1,4 +1,4 @@
-import { useLabStore } from "../../../store/labStore";
+﻿import { useLabStore } from "../../../store/labStore";
 import type { StageActivation, StageDefinition } from "../../../types/pipeline";
 import { DenseLayerViz } from "./ann/DenseLayerViz";
 import { ActivationViz } from "./ann/ActivationViz";
@@ -18,8 +18,8 @@ export function StageVisualization({ stage, activation }: Props) {
   const dataset = useLabStore((s) => s.dataset);
 
   return (
-    <div className="rounded-xl border border-slate-700/70 bg-black/25 p-3">
-      <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-cyan-300/80">Visualization</div>
+    <div className="rounded-xl border border-barley-linestrong bg-ink/45 p-3">
+      <div className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-ember-700">Visualization</div>
       {stage.type === "preprocessing" && <PreprocessingViz activation={activation} dataset={dataset} />}
       {stage.type === "dense" && <DenseLayerViz activation={activation} stage={stage} />}
       {stage.type === "activation_relu" && <ActivationViz activation={activation} />}

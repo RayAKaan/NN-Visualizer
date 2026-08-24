@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+﻿import React, { useMemo, useState } from "react";
 
 interface MapItem {
   mapId: number;
@@ -53,7 +53,7 @@ export function CNNFeatureGallery({ activations }: Props) {
   const [selected, setSelected] = useState<{ layer: string; mapId: number } | null>(null);
 
   const layers = useMemo(() => (Array.isArray(activations.layers) ? activations.layers : []), [activations.layers]);
-  if (layers.length === 0) return <div className="text-xs text-slate-400">No CNN feature maps available.</div>;
+  if (layers.length === 0) return <div className="text-xs text-ink-mute">No CNN feature maps available.</div>;
 
   return (
     <div className="space-y-4" style={{ transform: "perspective(900px) rotateX(5deg)" }}>
@@ -62,7 +62,7 @@ export function CNNFeatureGallery({ activations }: Props) {
         const maps = layer.maps.slice(0, 64);
         return (
           <section key={layer.id} className="space-y-2">
-            <h3 className="text-xs font-semibold text-cyan-200">{layer.name}</h3>
+            <h3 className="text-xs font-semibold text-ember-700">{layer.name}</h3>
             <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
               {maps.map((map) => {
                 const selectedThis = selected?.layer === layer.id && selected.mapId === map.mapId;
@@ -70,34 +70,34 @@ export function CNNFeatureGallery({ activations }: Props) {
                 return (
                   <button
                     key={`${layer.id}-${map.mapId}`}
-                    className="relative w-14 h-14 rounded-sm overflow-hidden border border-white/10 bg-black/30 transition-transform duration-150 hover:scale-110"
+                    className="relative w-14 h-14 rounded-sm overflow-hidden border border-barley-linestrong bg-ink transition-transform duration-150 hover:scale-110"
                     style={{
                       transform: selectedThis ? "scale(1.12) rotateY(6deg)" : "none",
-                      boxShadow: top.includes(map.mapId) ? "0 0 12px rgba(34,211,238,0.45)" : "none",
-                      borderColor: selectedThis ? "rgba(34,211,238,0.7)" : undefined,
+                      boxShadow: top.includes(map.mapId) ? "0 0 12px rgba(194,65,12,0.45)" : "none",
+                      borderColor: selectedThis ? "rgba(194,65,12,0.7)" : undefined,
                     }}
                     onClick={() => setSelected({ layer: layer.id, mapId: map.mapId })}
                     title={`Map ${map.mapId}`}
                   >
                     <img src={url} alt={`Feature map ${map.mapId} from ${layer.name}`} className="w-full h-full object-cover" />
-                    {top.includes(map.mapId) && <span className="absolute top-0 right-0 text-[9px] bg-cyan-500/80 px-1">top</span>}
+                    {top.includes(map.mapId) && <span className="absolute top-0 right-0 text-[12px] bg-ember-600/15 px-1">top</span>}
                   </button>
                 );
               })}
             </div>
             {selected?.layer === layer.id && (
-              <div className="flex flex-wrap items-center gap-3 rounded-md border border-white/10 bg-black/25 p-2">
+              <div className="flex flex-wrap items-center gap-3 rounded-md border border-barley-line bg-barley-sunken p-2">
                 <img
                   src={makeHeatmap(layer.maps.find((m) => m.mapId === selected.mapId)?.data ?? [])}
                   alt="Selected map preview"
-                  className="w-24 h-24 rounded bg-black/40 border border-white/10"
+                  className="w-24 h-24 rounded bg-ink border border-barley-linestrong"
                 />
                 <div>
-                  <div className="text-xs text-slate-300">Map {selected.mapId}</div>
-                  <div className="text-[11px] text-slate-400 mb-1">Kernel preview</div>
+                  <div className="text-xs text-ink-soft">Map {selected.mapId}</div>
+                  <div className="text-[12px] text-ink-mute mb-1">Kernel preview</div>
                   <div className="grid grid-cols-3 gap-1">
                     {(layer.maps.find((m) => m.mapId === selected.mapId)?.kernel ?? []).slice(0, 9).map((k, i) => (
-                      <div key={i} className="w-4 h-4 rounded-sm" style={{ background: `rgba(244,114,182,${Math.max(0.1, Math.min(1, Math.abs(Number(k))))})` }} />
+                      <div key={i} className="w-4 h-4 rounded-sm" style={{ background: `rgba(194,65,12,${Math.max(0.1, Math.min(1, Math.abs(Number(k))))})` }} />
                     ))}
                   </div>
                 </div>

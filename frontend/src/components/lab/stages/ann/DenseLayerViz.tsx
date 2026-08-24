@@ -1,4 +1,4 @@
-import type { StageActivation, StageDefinition } from "../../../../types/pipeline";
+﻿import type { StageActivation, StageDefinition } from "../../../../types/pipeline";
 
 interface Props {
   activation: StageActivation;
@@ -13,24 +13,24 @@ export function DenseLayerViz({ activation, stage }: Props) {
 
   return (
     <div className="space-y-3">
-      <div className="text-xs text-slate-400">{stage.name}: weighted transform from input vector to output units.</div>
+      <div className="text-xs text-ink-mute">{stage.name}: weighted transform from input vector to output units.</div>
       <div className="grid gap-3 md:grid-cols-2">
         <div>
-          <div className="mb-1 text-[11px] text-slate-500">Input sample</div>
+          <div className="mb-1 text-[12px] text-ink-faint">Input sample</div>
           <div className="space-y-1">
             {input.map((v, i) => (
-              <div key={i} className="h-2 rounded bg-slate-800">
-                <div className="h-full rounded" style={{ width: `${(Math.abs(v) / maxIn) * 100}%`, background: v >= 0 ? "rgba(34,211,238,0.8)" : "rgba(244,114,182,0.8)" }} />
+              <div key={i} className="h-2 rounded bg-barley-wash">
+                <div className="h-full rounded" style={{ width: `${(Math.abs(v) / maxIn) * 100}%`, background: v >= 0 ? "rgba(194,65,12,0.8)" : "rgba(0,114,178,0.8)" }} />
               </div>
             ))}
           </div>
         </div>
         <div>
-          <div className="mb-1 text-[11px] text-slate-500">Output sample</div>
+          <div className="mb-1 text-[12px] text-ink-faint">Output sample</div>
           <div className="space-y-1">
             {output.map((v, i) => (
-              <div key={i} className="h-2 rounded bg-slate-800">
-                <div className="h-full rounded bg-emerald-400/80" style={{ width: `${(Math.abs(v) / maxOut) * 100}%` }} />
+              <div key={i} className="h-2 rounded bg-barley-wash">
+                <div className="h-full rounded bg-status-success/12" style={{ width: `${(Math.abs(v) / maxOut) * 100}%` }} />
               </div>
             ))}
           </div>

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+﻿import { useRef, useState } from "react";
 import { useLabStore } from "../../store/labStore";
 
 export function ImageSelector() {
@@ -36,7 +36,7 @@ export function ImageSelector() {
       <button
         type="button"
         onClick={() => fileRef.current?.click()}
-        className="grid h-[280px] w-[280px] place-items-center rounded-2xl border border-dashed border-slate-600 bg-slate-900/40 text-center text-xs text-slate-400 transition hover:border-cyan-400/55"
+        className="grid h-[280px] w-[280px] place-items-center rounded-2xl border border-dashed border-barley-linestrong bg-white text-center text-xs text-ink-mute transition hover:border-ember-600/40"
       >
         {preview ? (
           <img src={preview} alt="Selected" className="h-full w-full rounded-2xl object-cover" />

@@ -1,4 +1,4 @@
-import { useLabStore } from "../../../store/labStore";
+﻿import { useLabStore } from "../../../store/labStore";
 
 export function TrainedVsUntrainedToggle() {
   const comparisonMode = useLabStore((s) => s.comparisonMode);
@@ -11,18 +11,17 @@ export function TrainedVsUntrainedToggle() {
   ];
 
   return (
-    <div className="inline-flex items-center gap-2 rounded-xl border px-2 py-1"
-      style={{ background: "var(--bg-panel)", borderColor: "var(--glass-border)" }}>
-      <span className="text-xs" style={{ color: "var(--text-3)" }}>Weights</span>
-      <div className="flex rounded-lg p-0.5" style={{ background: "var(--bg-void)" }}>
+    <div className="inline-flex items-center gap-2 rounded-xl border border-barley-linestrong bg-white px-2 py-1">
+      <span className="text-xs text-ink-mute">Weights</span>
+      <div className="flex rounded-lg bg-barley-page p-0.5">
         {modes.map((mode) => (
           <button key={mode.value} type="button" disabled={isRunning}
             onClick={() => setComparisonMode(comparisonMode === mode.value ? "off" : mode.value)}
-            className="rounded-md px-2 py-1 text-xs"
-            style={{
-              background: comparisonMode === mode.value ? (mode.value === "trained" ? "var(--fwd-bg)" : "var(--status-warning-bg)") : "transparent",
-              color: comparisonMode === mode.value ? (mode.value === "trained" ? "var(--fwd)" : "var(--status-warning)") : "var(--text-4)",
-            }}>
+            className={`rounded-md px-2 py-1 text-xs ${comparisonMode === mode.value
+              ? mode.value === "trained"
+                ? "bg-arch-ann/10 text-arch-ann"
+                : "bg-status-warning/10 text-status-warning"
+              : "text-ink-faint"}`}>
             {mode.label}
           </button>
         ))}

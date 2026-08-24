@@ -1,4 +1,4 @@
-import type { StageActivation, StageDefinition, StageStatus } from "../../../types/pipeline";
+﻿import type { StageActivation, StageDefinition, StageStatus } from "../../../types/pipeline";
 import { StageCardV2 } from "./StageCardV2";
 
 interface Props {

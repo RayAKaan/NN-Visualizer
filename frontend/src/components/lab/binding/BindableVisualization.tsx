@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+﻿import type { ReactNode } from "react";
 import { useBindingContext } from "./MathVisualBinder";
 
 interface Props {
@@ -20,7 +20,7 @@ export function BindableVisualization({ variableId, children }: Props) {
         if (enabled) deactivate();
       }}
       style={{
-        outline: active ? "2px solid var(--fwd)" : "none",
+        outline: active ? "2px solid #0072B2" : "none",
         borderRadius: 6,
       }}
     >

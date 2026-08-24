@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+﻿import { useMemo } from "react";
 import type { StageActivation, StageDefinition } from "../../../../types/pipeline";
 
 interface Props {
@@ -23,17 +23,17 @@ export function RecurrentCellViz({ activation, stage }: Props) {
 
   return (
     <div className="space-y-3 text-xs">
-      <div className="text-slate-400">{stage.name}: recurrent state update for this timestep.</div>
+      <div className="text-ink-mute">{stage.name}: recurrent state update for this timestep.</div>
       {avg && (
         <div className="grid gap-2 sm:grid-cols-3">
-          <div className="rounded-lg border border-rose-400/30 bg-rose-500/10 p-2 text-rose-200">Forget {Math.round(avg.forget * 100)}%</div>
-          <div className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 p-2 text-emerald-200">Input {Math.round(avg.input * 100)}%</div>
-          <div className="rounded-lg border border-violet-400/30 bg-violet-500/10 p-2 text-violet-200">Output {Math.round(avg.output * 100)}%</div>
+          <div className="rounded-lg border border-arch-rnn/40 bg-arch-rnn/12 p-2 text-arch-rnn">Forget {Math.round(avg.forget * 100)}%</div>
+          <div className="rounded-lg border border-status-success/40 bg-status-success/12 p-2 text-status-success">Input {Math.round(avg.input * 100)}%</div>
+          <div className="rounded-lg border border-arch-rnn/40 bg-arch-rnn/12 p-2 text-arch-rnn">Output {Math.round(avg.output * 100)}%</div>
         </div>
       )}
-      <div className="grid grid-cols-16 gap-1">
+      <div className="grid gap-1" style={{ gridTemplateColumns: "repeat(16, minmax(0, 1fr))" }}>
         {hidden.map((v, idx) => (
-          <div key={idx} className="h-4 rounded" style={{ background: `rgba(168,85,247,${0.12 + Math.min(Math.abs(v), 1) * 0.88})` }} />
+          <div key={idx} className="h-4 rounded" style={{ background: `rgba(166,77,133,${0.12 + Math.min(Math.abs(v), 1) * 0.88})` }} />
         ))}
       </div>
     </div>

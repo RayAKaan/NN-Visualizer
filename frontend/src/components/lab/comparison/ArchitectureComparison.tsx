@@ -1,13 +1,13 @@
-import { useRef } from "react";
+﻿import { useRef } from "react";
 import { useComparisonStore } from "../../../store/comparisonStore";
 import { ComparisonColumn } from "./ComparisonColumn";
 import { ComparisonInsight } from "./ComparisonInsight";
 import { ComparisonSyncScroll } from "./ComparisonSyncScroll";
 
 const ARCH_COLORS: Record<"ANN" | "CNN" | "RNN", string> = {
-  ANN: "var(--arch-ann)",
-  CNN: "var(--arch-cnn)",
-  RNN: "var(--arch-rnn)",
+  ANN: "#0072B2",
+  CNN: "#00806A",
+  RNN: "#A64D85",
 };
 
 export function ArchitectureComparison() {
@@ -25,14 +25,13 @@ export function ArchitectureComparison() {
   if (!isComparisonActive) return null;
 
   return (
-    <section className="fixed inset-0 z-30 flex flex-col" style={{ background: "rgba(2,6,23,0.92)", backdropFilter: "blur(6px)" }}>
-      <header className="flex items-center justify-between border-b px-4 py-2" style={{ borderColor: "var(--glass-border)", background: "var(--bg-card)" }}>
-        <div className="text-sm font-semibold" style={{ color: "var(--text-1)" }}>Architecture Comparison</div>
+    <section className="fixed inset-0 z-30 flex flex-col bg-barley-page/95 backdrop-blur-sm">
+      <header className="flex items-center justify-between border-b border-barley-linestrong bg-white px-4 py-2">
+        <div className="text-sm font-semibold text-ink">Architecture Comparison</div>
         <button
           type="button"
           onClick={stopComparison}
-          className="rounded-md px-2 py-1 text-xs"
-          style={{ border: "1px solid var(--glass-border)", color: "var(--text-3)", background: "var(--bg-panel)" }}
+          className="rounded-md border border-barley-linestrong bg-barley-page px-2 py-1 text-xs text-ink-mute hover:border-ember-600/40"
         >
           Close
         </button>
