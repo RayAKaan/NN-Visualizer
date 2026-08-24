@@ -1,16 +1,9 @@
+# Python
 __pycache__/
 *.pyc
-*.keras
-.venv/
-node_modules/
-dist/
-.env
-models_store/
-# Python
+*.pyo
 venv/
 .venv/
-__pycache__/
-*.pyc
 
 # Node
 node_modules/
@@ -19,3 +12,37 @@ build/
 
 # Environment
 .env
+
+# ML model weights
+*.h5
+*.hdf5
+*.pb
+*.ckpt
+*.pt
+*.pth
+models_store/
+
+# Logs
+server.log
+server_err.log
+server_stderr.log
+server_stdout.log
+*.log
+
+# Auto-generated docs & test scripts (not part of shipped project)
+ANALYSIS_REPORT.md
+IMPLEMENTATION_BLUEPRINT.md
+OPTIMIZATION_PLAN.md
+PROJECT_DOCUMENTATION.md
+SIMULATOR_PAGE_DOCUMENTATION.md
+TEST_AND_FIX_REPORT.md
+TEST_REPORT.md
+analysis_report.py
+run_tests.py
+test_simulator.py
+test_simulator_v2.py
+verify_fixes.py
+
+# OS
+.DS_Store
+Thumbs.db
