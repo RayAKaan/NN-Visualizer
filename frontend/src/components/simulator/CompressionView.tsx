@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { useCompressionStore } from "../../store/compressionStore";
 import { useSimulatorStore } from "../../store/simulatorStore";
 import { NeuralPanel } from "@/design-system/components/NeuralPanel";

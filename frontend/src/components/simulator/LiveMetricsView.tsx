@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+﻿import React, { useMemo } from "react";
 import { useTrainingSimStore } from "../../store/trainingSimStore";
 import { NeuralPanel } from "@/design-system/components/NeuralPanel";
 import { GlowLineChart } from "@/design-system/charts/GlowLineChart";

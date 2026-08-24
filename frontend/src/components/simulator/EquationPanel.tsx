@@ -1,4 +1,4 @@
-import React from "react";
+ï»¿import React from "react";
 import { BlockMath } from "react-katex";
 import "katex/dist/katex.min.css";
 import { useComputationStore } from "../../store/computationStore";
@@ -12,7 +12,7 @@ export function EquationPanel() {
   const toLatex = (value: string) =>
     value
       .replace(/\*/g, " \\cdot ")
-      .replace(/·/g, " \\cdot ")
+      .replace(/Ã—/g, " \\cdot ")
       .replace(/\s+/g, " ")
       .trim();
 
@@ -45,10 +45,10 @@ export function EquationPanel() {
             <BlockMath math={toLatex(equations.generic_equations.activation)} />
           </div>
           <div className="equation-meta">
-            W: {equations.dimensions.W_shape.join("x")} • Params: {equations.dimensions.param_count}
+            W: {equations.dimensions.W_shape.join("x")} {"\u00b7"} Params: {equations.dimensions.param_count}
           </div>
           <div className="equation-meta">
-            Mean {equations.weight_stats.mean.toFixed(3)} • Std {equations.weight_stats.std.toFixed(3)}
+            Mean {equations.weight_stats.mean.toFixed(3)} {"\u00b7"} Std {equations.weight_stats.std.toFixed(3)}
           </div>
           <div className="equation-block equation-forward numeric">
             <div className="equation-label">Numeric</div>

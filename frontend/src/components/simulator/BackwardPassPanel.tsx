@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { useBackpropStore } from "../../store/backpropStore";
 import { useSimulatorStore } from "../../store/simulatorStore";
 import { NeuralPanel } from "@/design-system/components/NeuralPanel";

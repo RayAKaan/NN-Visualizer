@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import { useArchitectureStore } from "../../store/architectureStore";
 import { simulatorApi } from "../../hooks/useSimulatorApi";
 import { NeuralButton } from "@/design-system/components/NeuralButton";

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+﻿import React, { useEffect, useRef, useState } from "react";
 import type { DatasetPoint } from "../../types/simulator";
 import { neuralPalette } from "@/design-system/tokens/colors";
 

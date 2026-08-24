@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+ï»¿import React, { useEffect, useState } from "react";
 import { useDatasetStore } from "../../store/datasetStore";
 import { DatasetCanvas } from "./DatasetCanvas";
 import { NeuralButton } from "@/design-system/components/NeuralButton";
@@ -252,7 +252,7 @@ export function DatasetPanel() {
 
       {stats ? (
         <div className="dataset-status">
-          Train: {stats.n_train} • Test: {stats.n_test}
+          Train: {stats.n_train} {"\u00b7"} Test: {stats.n_test}
         </div>
       ) : null}
     </NeuralPanel>

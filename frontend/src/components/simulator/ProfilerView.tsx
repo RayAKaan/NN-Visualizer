@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import { simulatorApi } from "../../hooks/useSimulatorApi";
 import { useSimulatorStore } from "../../store/simulatorStore";
 import type { ProfileResponse } from "../../types/simulator";

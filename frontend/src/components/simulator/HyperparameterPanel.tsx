@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { useTrainingSimStore } from "../../store/trainingSimStore";
 import { NeuralPanel } from "@/design-system/components/NeuralPanel";
 import { NeuralInput } from "@/design-system/components/NeuralInput";

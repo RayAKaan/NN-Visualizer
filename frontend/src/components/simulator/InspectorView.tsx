@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+﻿import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useComputationStore } from "../../store/computationStore";
 import { useSimulatorStore } from "../../store/simulatorStore";
 import { simulatorApi } from "../../hooks/useSimulatorApi";

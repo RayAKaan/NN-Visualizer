@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+﻿import React, { useMemo } from "react";
 import * as THREE from "three";
 
 interface ScatterPoint {
@@ -11,14 +11,14 @@ interface ScatterProps {
 }
 
 const COLORS = [
-  new THREE.Color("#38bdf8"),
-  new THREE.Color("#f472b6"),
-  new THREE.Color("#34d399"),
-  new THREE.Color("#facc15"),
-  new THREE.Color("#a78bfa"),
-  new THREE.Color("#fb7185"),
-  new THREE.Color("#f97316"),
-  new THREE.Color("#60a5fa"),
+  new THREE.Color("#0072B2"),
+  new THREE.Color("#E69F00"),
+  new THREE.Color("#009E73"),
+  new THREE.Color("#B45309"),
+  new THREE.Color("#CC79A7"),
+  new THREE.Color("#D55E00"),
+  new THREE.Color("#56B4E9"),
+  new THREE.Color("#00806A"),
 ];
 
 export function ScatterPlot3DRenderer({ points }: ScatterProps) {

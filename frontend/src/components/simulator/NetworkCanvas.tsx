@@ -4,8 +4,24 @@ import { useComputationStore } from "../../store/computationStore";
 import { useSimulatorStore } from "../../store/simulatorStore";
 import { useBackpropStore } from "../../store/backpropStore";
 import { useTrainingSimStore } from "../../store/trainingSimStore";
-import { activationColor, gradientHealthColor, neuralPalette, weightColor, lerpColor } from "@/design-system/tokens/colors";
+import { useSessionStore } from "../../store/sessionStore";
+import { activationColor, gradientHealthColor, neuralPalette, lerpColor } from "@/design-system/tokens/colors";
 import { useReducedMotion } from "@/design-system/hooks/useReducedMotion";
+
+// Shared geometry so the render loop and the hit-testing handler can never
+// drift apart.
+const CANVAS_TOP_PAD = 56;
+const CANVAS_BOTTOM_PAD = 96;
+const MAX_DISPLAY_NEURONS = 10;
+
+const hexToRgba = (hex: string, alpha: number) => {
+  const h = hex.replace("#", "");
+  const full = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
+  const num = parseInt(full, 16);
+  return `rgba(${(num >> 16) & 255}, ${(num >> 8) & 255}, ${num & 255}, ${alpha})`;
+};
+
+const neuronRadius = (count: number) => (count > 8 ? 11 : count < 4 ? 15 : 13);
 
 export function NetworkCanvas() {
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -13,11 +29,15 @@ export function NetworkCanvas() {
   const rafRef = useRef<number | null>(null);
   const lastFrameRef = useRef<number>(0);
   const gridOffsetRef = useRef<number>(0);
-  const layers = useArchitectureStore((s) => s.layers);
+  const architectureLayers = useArchitectureStore((s) => s.layers);
+  const sessionArchitecture = useSessionStore((s) => s.architecture);
+  const layers = architectureLayers.length > 0 ? architectureLayers : sessionArchitecture;
+  const graphData = useSessionStore((s) => s.graphData);
   const layerOutputs = useComputationStore((s) => s.layerOutputs);
   const steps = useComputationStore((s) => s.steps);
   const selectedLayer = useSimulatorStore((s) => s.selectedLayerIndex);
   const forwardPassState = useSimulatorStore((s) => s.forwardPassState);
+  const currentInput = useSimulatorStore((s) => s.currentInput);
   const currentStepIndex = useSimulatorStore((s) => s.currentStepIndex);
   const autoPlay = useSimulatorStore((s) => s.autoPlay);
   const animationSpeed = useSimulatorStore((s) => s.animationSpeed);
@@ -27,6 +47,7 @@ export function NetworkCanvas() {
   const mode = useBackpropStore((s) => s.mode);
   const isTraining = useTrainingSimStore((s) => s.isTraining);
   const reducedMotion = useReducedMotion();
+  const executionStatus = useSessionStore((s) => s.executionStatus);
   const [hovered, setHovered] = useState<{
     layerIndex: number;
     neuronIndex: number;
@@ -36,10 +57,31 @@ export function NetworkCanvas() {
     bias: number;
   } | null>(null);
 
-  const displayCounts = useMemo(() => layers.map((l) => Math.min(l.neurons, 12)), [layers]);
+  const displayLayers = useMemo(() => {
+    const archLayers = architectureLayers || [];
+    const sessLayers = sessionArchitecture || [];
+    const sourceLayers = archLayers.length > 0 ? archLayers : sessLayers;
+    
+    if (sourceLayers.length === 0) {
+      return [
+        { type: 'input' as const, neurons: 2 },
+        { type: 'dense' as const, neurons: 4 },
+        { type: 'output' as const, neurons: 1 }
+      ];
+    }
+    
+    return sourceLayers;
+  }, [architectureLayers, sessionArchitecture]);
+  
+  const displayCounts = useMemo(() => {
+    return displayLayers.map((l) => Math.min(l.neurons || 4, MAX_DISPLAY_NEURONS));
+  }, [displayLayers]);
 
   const weightMaps = useMemo(() => {
-    const maps: number[][][] = [];
+    // One matrix per adjacent layer pair shown on screen. Prefer real weights
+    // from the backend (serialized flattened to 1-D); fall back to a stable
+    // pseudo-random matrix whenever a pair has no matching data, so a
+    // mismatched/shorter weights payload can never break rendering.
     const seedFrom = (a: number, b: number, c: number) => (a * 73856093) ^ (b * 19349663) ^ (c * 83492791);
     const rand = (seed: number) => {
       let t = seed + 0x6d2b79f5;
@@ -47,20 +89,49 @@ export function NetworkCanvas() {
       t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
       return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     };
+
+    const maps: number[][][] = [];
     for (let i = 0; i < displayCounts.length - 1; i += 1) {
-      const rows = displayCounts[i + 1];
-      const cols = displayCounts[i];
+      const rows = Math.min(displayCounts[i + 1] ?? 0, MAX_DISPLAY_NEURONS);
+      const cols = Math.min(displayCounts[i] ?? 0, MAX_DISPLAY_NEURONS);
+      const origCols = Math.max(1, displayLayers[i]?.neurons ?? cols);
+      const raw = (graphData?.weights ?? [])[i] as unknown;
       const seed = seedFrom(rows, cols, i + 1);
-      const mat: number[][] = Array.from({ length: rows }, (_, r) =>
-        Array.from({ length: cols }, (_, c) => {
-          const value = rand(seed + r * 31 + c * 17);
-          return (value - 0.5) * 2;
-        }),
-      );
+      const mat: number[][] = [];
+      for (let r = 0; r < rows; r += 1) {
+        const row: number[] = [];
+        for (let c = 0; c < cols; c += 1) {
+          let value: number;
+          if (Array.isArray(raw)) {
+            if (Array.isArray((raw as number[][])[r])) {
+              value = Number((raw as number[][])[r][c] ?? 0);
+            } else {
+              const flat = raw as number[];
+              const idx = r * origCols + c;
+              value = idx < flat.length ? Number(flat[idx] ?? 0) : 0;
+            }
+          } else {
+            value = (rand(seed + r * 31 + c * 17) - 0.5) * 2;
+          }
+          row.push(Number.isFinite(value) ? value : 0);
+        }
+        mat.push(row);
+      }
       maps.push(mat);
     }
     return maps;
-  }, [displayCounts]);
+  }, [displayCounts, displayLayers, graphData]);
+
+  // Backend layer_outputs are keyed by weight-layer index k, meaning the
+  // activations AFTER display layer k+1. Display layer 0 is the network
+  // input itself, which comes from currentInput.
+  const activationsByLayer = useMemo(() => {
+    const result: number[][] = [currentInput ?? []];
+    for (let i = 1; i < displayLayers.length; i += 1) {
+      result.push(layerOutputs[String(i - 1)] ?? []);
+    }
+    return result;
+  }, [currentInput, displayLayers, layerOutputs]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -92,8 +163,8 @@ export function NetworkCanvas() {
     const render = (time: number) => {
       const width = canvas.width / ratio;
       const height = canvas.height / ratio;
-      const active = forwardPassState !== "idle" || autoPlay || isTraining;
-      const frameBudget = active ? 33 : 100;
+      const isActive = executionStatus === 'complete' || executionStatus === 'running' || forwardPassState !== "idle" || autoPlay || isTraining;
+      const frameBudget = isActive ? 33 : 100;
       if (time - lastFrameRef.current < frameBudget) {
         rafRef.current = requestAnimationFrame(render);
         return;
@@ -110,30 +181,37 @@ export function NetworkCanvas() {
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, width, height);
 
-      const drift = !active && !reducedMotion ? (time * 0.0005) % 30 : 0;
+      const drift = !isActive && !reducedMotion ? (time * 0.0005) % 40 : 0;
       gridOffsetRef.current = drift;
-      ctx.strokeStyle = "rgba(36,40,54,0.08)";
+      ctx.strokeStyle = "rgba(28,25,23,0.05)";
       ctx.lineWidth = 0.5;
-      for (let x = -30 + drift; x < width; x += 30) {
+      for (let x = -40 + drift; x < width; x += 40) {
         ctx.beginPath();
         ctx.moveTo(x, 0);
         ctx.lineTo(x, height);
         ctx.stroke();
       }
-      for (let y = -30 + drift; y < height; y += 30) {
+      for (let y = -40 + drift; y < height; y += 40) {
         ctx.beginPath();
         ctx.moveTo(0, y);
         ctx.lineTo(width, y);
         ctx.stroke();
       }
 
-      const colGap = width / (layers.length + 1);
-      const topPad = 48;
-      const bottomPad = 72;
+      const displayLayers = layers.length > 0 ? layers : [
+        { type: 'input', neurons: 2 },
+        { type: 'dense', neurons: 4 },
+        { type: 'output', neurons: 1 }
+      ];
+      const colCount = Math.max(displayLayers.length, 3);
+      const colGap = width / (colCount + 1);
+      const topPad = CANVAS_TOP_PAD;
+      const bottomPad = CANVAS_BOTTOM_PAD;
       const usableHeight = height - topPad - bottomPad;
 
-      const layerPositions = layers.map((layer, i) => {
-        const n = displayCounts[i];
+      const layerPositions = displayLayers.map((layer, i) => {
+        const n = displayCounts[i] ?? 0;
+        if (n <= 0) return { x: colGap * (i + 1), yPositions: [], count: 0, layer };
         const spacing = usableHeight / (n + 1);
         const x = colGap * (i + 1);
         const yPositions = Array.from({ length: n }, (_, j) => topPad + spacing * (j + 1));
@@ -159,8 +237,8 @@ export function NetworkCanvas() {
         dim: boolean,
       ) => {
         const magnitude = Math.min(Math.abs(weight) / maxWeight, 1);
-        const widthLine = 0.5 + magnitude * 2.5;
-        const opacity = dim ? 0.1 : 0.08 + magnitude * 0.5;
+        const widthLine = 0.5 + magnitude * 1.8;
+        const opacity = dim ? 0.04 : 0.05 + magnitude * 0.28;
         const controlX = (startX + endX) / 2;
         const controlY = (startY + endY) / 2 + (startX > endX ? -5 : 5);
         const grad = ctx.createLinearGradient(startX, startY, endX, endY);
@@ -215,18 +293,23 @@ export function NetworkCanvas() {
         const source = layerPositions[i];
         const target = layerPositions[i + 1];
         const weights = weightMaps[i];
+        // Dense all-to-all meshes are the main source of visual noise: hide
+        // near-zero connections when there are many, keep only strong ones
+        // for unselected layers in very dense graphs.
         const limitConnections = totalConnections > 200 && selectedLayer !== i;
+        const pruneWeak = totalConnections > 120;
         for (let t = 0; t < target.count; t += 1) {
           for (let s = 0; s < source.count; s += 1) {
-            if (limitConnections && Math.abs(weights[t][s]) < 0.75) continue;
+            const wMag = Math.abs(weights[t][s]);
+            if ((limitConnections && wMag < 0.75) || (pruneWeak && wMag < 0.06)) continue;
             const inactiveForPass =
               (!isTraining && forwardActiveLayer != null && forwardActiveLayer !== i) ||
               (!isTraining && backwardActiveLayer != null && backwardActiveLayer !== i);
             const dim =
               (hovered && !(hoveredLayer === i && hoveredNeuron === s) && !(hoveredLayer === i + 1 && hoveredNeuron === t)) ||
               inactiveForPass;
-            const sourceAct = layerOutputs[String(i)]?.[s] ?? 0;
-            const targetAct = layerOutputs[String(i + 1)]?.[t] ?? 0;
+            const sourceAct = activationsByLayer[i]?.[s] ?? 0;
+            const targetAct = activationsByLayer[i + 1]?.[t] ?? 0;
             drawConnection(
               source.x,
               source.yPositions[s],
@@ -250,58 +333,55 @@ export function NetworkCanvas() {
       }
 
       layerPositions.forEach((info, i) => {
-        const outputs = layerOutputs[String(i)] ?? [];
-        const label = i === 0 ? "Input" : i === layers.length - 1 ? "Output" : `Hidden ${i}`;
-        ctx.fillStyle = neuralPalette.silver;
-        ctx.font = '10px "Inter", sans-serif';
+        const outputs = activationsByLayer[i] ?? [];
+        const label = i === 0 ? "Input" : i === displayLayers.length - 1 ? "Output" : `Hidden ${i}`;
+        ctx.fillStyle = "#79716b";
+        ctx.font = '600 10px "Inter", sans-serif';
         ctx.textAlign = "center";
-        ctx.fillText(label.toUpperCase(), info.x, 18);
-        ctx.fillStyle = neuralPalette.ash;
-        ctx.font = '9px "Inter", sans-serif';
-        ctx.fillText(`(${info.layer.neurons} neurons)`, info.x, height - 24);
+        ctx.textBaseline = "alphabetic";
+        ctx.fillText(`${label.toUpperCase()} · ${info.layer.neurons}`, info.x, 24);
 
         info.yPositions.forEach((y, j) => {
           const val = outputs[j] ?? 0;
           const intensity = Math.min(Math.abs(val) / maxActivation, 1);
-          const radiusBase = info.count > 8 ? 12 : info.count < 4 ? 16 : 14;
-          const radius = (hoveredLayer === i && hoveredNeuron === j) ? radiusBase * 1.2 : radiusBase;
-          const color = activationColor(val);
+          const radiusBase = neuronRadius(info.count);
+          const isHovered = hoveredLayer === i && hoveredNeuron === j;
+          const radius = isHovered ? radiusBase * 1.25 : radiusBase;
+          const color = activationColor(val, maxActivation);
           const isDead = val === 0 && (info.layer.activation || "").toLowerCase() === "relu";
 
-          if (val !== 0) {
-            const glow = ctx.createRadialGradient(info.x, y, radius, info.x, y, radius * 2.5);
-            glow.addColorStop(0, color);
-            glow.addColorStop(1, "rgba(0,0,0,0)");
-            ctx.globalAlpha = 0.25 + intensity * 0.5;
+          if (intensity > 0.02) {
+            const glow = ctx.createRadialGradient(info.x, y, radius * 0.6, info.x, y, radius * 2.2);
+            glow.addColorStop(0, hexToRgba(color, 0.3 + intensity * 0.35));
+            glow.addColorStop(1, hexToRgba(color, 0));
             ctx.beginPath();
-            ctx.arc(info.x, y, radius * 2.5, 0, Math.PI * 2);
+            ctx.arc(info.x, y, radius * 2.2, 0, Math.PI * 2);
             ctx.fillStyle = glow;
             ctx.fill();
-            ctx.globalAlpha = 1;
           }
 
-          const core = ctx.createRadialGradient(info.x - radius * 0.3, y - radius * 0.3, radius * 0.3, info.x, y, radius);
-          core.addColorStop(0, color);
-          core.addColorStop(1, weightColor(val, 1));
+          // White core + activation-colored ring: cleaner than a saturated
+          // disc and keeps the number legible on top.
           ctx.beginPath();
           ctx.arc(info.x, y, radius, 0, Math.PI * 2);
-          ctx.fillStyle = core;
-          ctx.fill();
-
-          ctx.beginPath();
-          ctx.ellipse(info.x - radius * 0.25, y - radius * 0.25, radius * 0.3, radius * 0.2, 0, 0, Math.PI * 2);
-          ctx.fillStyle = "rgba(232, 236, 248, 0.15)";
+          ctx.fillStyle = neuralPalette.obsidian;
           ctx.fill();
 
           ctx.setLineDash(isDead ? [4, 3] : []);
-          ctx.strokeStyle = isDead ? "rgba(239, 68, 68, 0.5)" : i === selectedLayer ? neuralPalette.synapse.bright : neuralPalette.graphite;
-          ctx.lineWidth = i === selectedLayer ? 2 : 1.5;
+          ctx.strokeStyle = isDead
+            ? "rgba(239, 68, 68, 0.55)"
+            : i === selectedLayer
+              ? neuralPalette.synapse.bright
+              : intensity > 0.02
+                ? color
+                : "rgba(168, 162, 158, 0.85)";
+          ctx.lineWidth = i === selectedLayer || isHovered ? 2 : 1.25 + intensity * 1.25;
           ctx.stroke();
           ctx.setLineDash([]);
 
-          if (radius > 10) {
-            ctx.fillStyle = `rgba(200, 206, 228, ${0.3 + intensity * 0.6})`;
-            ctx.font = '9px "JetBrains Mono", monospace';
+          if ((val !== 0 || isHovered) && !isDead) {
+            ctx.fillStyle = `rgba(28, 25, 23, ${0.5 + intensity * 0.45})`;
+            ctx.font = '600 9px "JetBrains Mono", monospace';
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
             ctx.fillText(val.toFixed(2), info.x, y);
@@ -309,7 +389,7 @@ export function NetworkCanvas() {
 
           if (isDead) {
             ctx.fillStyle = neuralPalette.lesion.bright;
-            ctx.font = '12px "JetBrains Mono", monospace';
+            ctx.font = '600 12px "JetBrains Mono", monospace';
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
             ctx.fillText("x", info.x, y);
@@ -317,43 +397,56 @@ export function NetworkCanvas() {
         });
       });
 
-      for (let i = 0; i < layers.length - 1; i += 1) {
-        const activation = layers[i + 1]?.activation;
+      for (let i = 0; i < displayLayers.length - 1; i += 1) {
+        const activation = displayLayers[i + 1]?.activation;
         if (!activation) continue;
         const midX = (layerPositions[i].x + layerPositions[i + 1].x) / 2;
-        const midY = height - 48;
+        const midY = height - 74;
         ctx.fillStyle = neuralPalette.obsidian;
-        ctx.strokeStyle = neuralPalette.graphite;
+        ctx.strokeStyle = "rgba(28,25,23,0.12)";
         ctx.lineWidth = 1;
         const text = activation.toUpperCase();
-        const pad = 6;
-        ctx.font = '9px "JetBrains Mono", monospace';
+        const pad = 8;
+        ctx.font = '600 9px "JetBrains Mono", monospace';
         const metrics = ctx.measureText(text);
         const w = metrics.width + pad * 2;
         const h = 18;
         ctx.beginPath();
-        ctx.roundRect(midX - w / 2, midY - h / 2, w, h, 6);
+        if (typeof ctx.roundRect === "function") {
+          ctx.roundRect(midX - w / 2, midY - h / 2, w, h, 9);
+        } else {
+          ctx.rect(midX - w / 2, midY - h / 2, w, h);
+        }
         ctx.fill();
         ctx.stroke();
-        ctx.fillStyle = neuralPalette.cloud;
+        ctx.fillStyle = "#44403c";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText(text, midX, midY);
+        ctx.fillText(text, midX, midY + 0.5);
       }
 
       if (gradientSummary?.per_layer?.length) {
-        const barY = height - 56;
+        // Gradient bars live in their own band below the pills so the two
+        // bottom overlays can never collide.
+        const baseline = height - 36;
         gradientSummary.per_layer.forEach((g, idx) => {
           const midX = (layerPositions[idx]?.x + layerPositions[idx + 1]?.x) / 2;
           if (!midX) return;
           const norm = g.dW_norm ?? 0;
-          const barH = Math.min(30, Math.log10(norm + 1) * 10 + 4);
+          const barH = Math.min(22, Math.log10(norm + 1) * 10 + 4);
           ctx.fillStyle = gradientHealthColor(norm);
-          ctx.fillRect(midX - 4, barY - barH, 8, barH);
-          ctx.fillStyle = neuralPalette.ash;
-          ctx.font = '8px "JetBrains Mono", monospace';
+          ctx.beginPath();
+          if (typeof ctx.roundRect === "function") {
+            ctx.roundRect(midX - 7, baseline - barH, 14, barH, [3, 3, 0, 0]);
+          } else {
+            ctx.rect(midX - 7, baseline - barH, 14, barH);
+          }
+          ctx.fill();
+          ctx.fillStyle = "#79716b";
+          ctx.font = '600 8px "JetBrains Mono", monospace';
           ctx.textAlign = "center";
-          ctx.fillText(norm.toExponential(1), midX, barY + 12);
+          ctx.textBaseline = "alphabetic";
+          ctx.fillText(norm.toExponential(1), midX, height - 20);
         });
       }
 
@@ -368,7 +461,7 @@ export function NetworkCanvas() {
     };
   }, [
     layers,
-    layerOutputs,
+    activationsByLayer,
     selectedLayer,
     forwardPassState,
     autoPlay,
@@ -397,8 +490,8 @@ export function NetworkCanvas() {
       const width = rect.width;
       const height = rect.height;
       const colGap = width / (layers.length + 1);
-      const topPad = 48;
-      const bottomPad = 72;
+      const topPad = CANVAS_TOP_PAD;
+      const bottomPad = CANVAS_BOTTOM_PAD;
       const usableHeight = height - topPad - bottomPad;
       let found = null as typeof hovered;
       layers.forEach((layer, i) => {
@@ -407,12 +500,12 @@ export function NetworkCanvas() {
         const cx = colGap * (i + 1);
         for (let j = 0; j < n; j += 1) {
           const cy = topPad + spacing * (j + 1);
-          const radiusBase = n > 8 ? 12 : n < 4 ? 16 : 14;
+          const radiusBase = neuronRadius(n);
           const dx = x - cx;
           const dy = y - cy;
           const dist = Math.sqrt(dx * dx + dy * dy);
           if (dist <= radiusBase * 1.2) {
-            const activation = layerOutputs[String(i)]?.[j] ?? 0;
+            const activation = activationsByLayer[i]?.[j] ?? 0;
             found = {
               layerIndex: i,
               neuronIndex: j,
@@ -433,7 +526,7 @@ export function NetworkCanvas() {
       canvas.removeEventListener("mousemove", handleMove);
       canvas.removeEventListener("mouseleave", handleLeave);
     };
-  }, [layers, layerOutputs, displayCounts]);
+  }, [layers, activationsByLayer, displayCounts]);
 
   return (
     <div ref={wrapperRef} className="network-canvas-wrap">
