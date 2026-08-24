@@ -1,4 +1,4 @@
-import { create } from "zustand";
+﻿import { create } from "zustand";
 import type { TrainingConfig, TrainingMetrics } from "../types/simulator";
 
 interface TrainingSimState {
@@ -13,6 +13,8 @@ interface TrainingSimState {
   warnings: any[];
   updateConfig: (updates: Partial<TrainingConfig>) => void;
   setStatus: (status: Partial<TrainingSimState>) => void;
+  setMetricsHistory: (history: TrainingMetrics[]) => void;
+  setIsTraining: (training: boolean) => void;
   pushMetrics: (epoch: number, metrics: TrainingMetrics) => void;
   pushWarning: (warning: any) => void;
 }
@@ -42,6 +44,8 @@ export const useTrainingSimStore = create<TrainingSimState>((set, get) => ({
   warnings: [],
   updateConfig: (updates) => set({ config: { ...get().config, ...updates } }),
   setStatus: (status) => set(status),
+  setMetricsHistory: (history) => set({ metricsHistory: history }),
+  setIsTraining: (training) => set({ isTraining: training }),
   pushMetrics: (epoch, metrics) =>
     set((s) => ({
       metricsHistory: [...s.metricsHistory, metrics],

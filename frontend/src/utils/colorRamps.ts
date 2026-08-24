@@ -1,4 +1,4 @@
-export type ColorRamp = Array<[number, number, number]>;
+﻿export type ColorRamp = Array<[number, number, number]>;
 
 export const ACTIVATION_RAMP_DARK: ColorRamp = [
   [10, 10, 20],
@@ -83,21 +83,6 @@ export const SALIENCY_RAMP: Array<[number, number, number, number]> = [
   [255, 200, 50, 210],
   [255, 255, 120, 230],
 ];
-
-export const GATE_COLORS = {
-  dark: {
-    forget: { low: "#2d1520", high: "#f472b6", label: "#f9a8d4" },
-    input: { low: "#152d20", high: "#34d399", label: "#86efac" },
-    output: { low: "#15202d", high: "#60a5fa", label: "#93c5fd" },
-    cell: { low: "#201520", high: "#c084fc", label: "#d8b4fe" },
-  },
-  light: {
-    forget: { low: "#fce7f3", high: "#db2777", label: "#be185d" },
-    input: { low: "#d1fae5", high: "#059669", label: "#047857" },
-    output: { low: "#dbeafe", high: "#2563eb", label: "#1d4ed8" },
-    cell: { low: "#f3e8ff", high: "#9333ea", label: "#7c3aed" },
-  },
-};
 
 export function sampleRamp(ramp: ColorRamp, value: number): [number, number, number] {
   const clamped = Math.max(0, Math.min(1, value));

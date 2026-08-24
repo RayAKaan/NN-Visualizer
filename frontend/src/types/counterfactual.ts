@@ -1,4 +1,4 @@
-export interface CounterfactualExperiment {
+﻿export interface CounterfactualExperiment {
   id: string;
   timestamp: number;
   originalInput: Float32Array;

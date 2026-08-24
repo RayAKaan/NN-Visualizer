@@ -1,4 +1,4 @@
-export function l2Norm(values: Float32Array): number {
+﻿export function l2Norm(values: Float32Array): number {
   let sum = 0;
   for (let i = 0; i < values.length; i += 1) sum += values[i] * values[i];
   return Math.sqrt(sum);

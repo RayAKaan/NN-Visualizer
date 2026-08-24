@@ -1,4 +1,4 @@
-import type { Architecture, Dataset, StageDefinition } from "../types/pipeline";
+﻿import type { Architecture, Dataset, StageDefinition } from "../types/pipeline";
 
 function annStages(dataset: Dataset): StageDefinition[] {
   const classes = dataset === "catdog" ? 2 : 10;

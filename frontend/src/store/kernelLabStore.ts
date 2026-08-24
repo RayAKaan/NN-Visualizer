@@ -1,9 +1,9 @@
-import { create } from "zustand";
+﻿import { create } from "zustand";
 import { devtools } from "zustand/middleware";
 import { KERNEL_PRESETS } from "../data/kernelPresets";
 import { useLabStore } from "./labStore";
 import { apiClient } from "../api/client";
-import { ACTIVATION_RAMP_DARK, ACTIVATION_RAMP_LIGHT, renderHeatmap } from "../utils/colorRamps";
+import { ACTIVATION_RAMP_LIGHT, renderHeatmap } from "../utils/colorRamps";
 
 interface KernelLabStore {
   isOpen: boolean;
@@ -190,8 +190,7 @@ export const useKernelLabStore = create<KernelLabStore>()(
         });
         const data = response.data;
         const featureMap = new Float32Array(data.feature_map ?? []);
-        const isLight = document.documentElement.classList.contains("light");
-        const ramp = isLight ? ACTIVATION_RAMP_LIGHT : ACTIVATION_RAMP_DARK;
+                const ramp = ACTIVATION_RAMP_LIGHT;
         const url = renderHeatmap(featureMap, data.width ?? 28, data.height ?? 28, ramp, true);
         set({ previewFeatureMap: url, isPreviewLoading: false });
       } catch {

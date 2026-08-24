@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+﻿import { useEffect, useRef, useState, useCallback } from "react";
 import { WS_URL } from "../api/client";
 import { TrainingBatchMetrics, TrainingMetrics, TrainingStatus } from "../types";
 
@@ -6,6 +6,7 @@ export function useTrainingSocket() {
   const ws = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<number | null>(null);
   const commandQueue = useRef<Array<{ action: string; config?: any }>>([]);
+  const disposedRef = useRef(false);
   const [isConnected, setIsConnected] = useState(false);
   const [status, setStatus] = useState<TrainingStatus>({
     status: "idle",
@@ -34,23 +35,27 @@ export function useTrainingSocket() {
       return;
     }
 
-    ws.current = new WebSocket(WS_URL);
+    disposedRef.current = false;
+    const socket = new WebSocket(WS_URL);
+    ws.current = socket;
 
-    ws.current.onopen = () => {
+    socket.onopen = () => {
+      if (ws.current !== socket || disposedRef.current) return;
       setIsConnected(true);
       setLogs((prev) => [...prev, "Connected to training server."]);
-      ws.current?.send(JSON.stringify({ action: "status" }));
+      socket.send(JSON.stringify({ action: "status" }));
       flushQueue();
     };
 
-    ws.current.onmessage = (event) => {
+    socket.onmessage = (event) => {
+      if (ws.current !== socket) return;
       const data = JSON.parse(event.data);
 
       switch (data.type) {
         case "status_response":
         case "status":
           if (data.status) {
-             const normalizedStatus = data.status === "training_started" ? "training" : data.status;
+             const normalizedStatus = data.status === "training_started" ? "training" : data.status === "stopping" ? "stopping" : data.status;
              setStatus(prev => ({
                  ...prev,
                  status: normalizedStatus,
@@ -81,6 +86,13 @@ export function useTrainingSocket() {
           };
           setLiveBatch(point);
           setBatchHistory((prev) => {
+            // Reset visuals when a brand-new run starts over from epoch/batch 0.
+            if (point.epoch <= 1 && point.batch <= 1 && prev.length > 0) {
+              const last = prev[prev.length - 1];
+              if (last.epoch > point.epoch || (last.epoch === point.epoch && last.batch > point.batch)) {
+                return [point];
+              }
+            }
             const next = [...prev, point];
             return next.length > 500 ? next.slice(next.length - 500) : next;
           });
@@ -92,9 +104,15 @@ export function useTrainingSocket() {
           }));
           break;
         }
-          
+
         case "epoch":
-          setHistory((prev) => [...prev, data]);
+          setHistory((prev) => {
+            // A newer run restarting from an earlier epoch means the old
+            // history belongs to a previous session - start fresh.
+            const last = prev[prev.length - 1];
+            if (last && data.epoch < last.epoch) return [data];
+            return [...prev, data];
+          });
           setStatus((prev) => ({
             ...prev,
             current_epoch: data.epoch,
@@ -106,7 +124,7 @@ export function useTrainingSocket() {
           setStatus((prev) => ({ ...prev, status: "completed" }));
           setLogs((prev) => [...prev, `Training complete. Test Acc: ${(data.test_accuracy * 100).toFixed(2)}%`]);
           break;
-          
+
         case "error":
           setLogs((prev) => [...prev, `Error: ${data.message}`]);
           setStatus((prev) => ({ ...prev, status: "idle" }));
@@ -114,14 +132,16 @@ export function useTrainingSocket() {
       }
     };
 
-    ws.current.onclose = () => {
-      setIsConnected(false);
-      setLogs((prev) => [...prev, "Disconnected."]);
+    socket.onclose = () => {
+      const isCurrent = ws.current === socket;
+      if (isCurrent) setIsConnected(false);
+      // Stale sockets (already replaced) or intentional closes never reconnect.
+      if (!isCurrent || disposedRef.current) return;
       if (reconnectTimer.current) {
         window.clearTimeout(reconnectTimer.current);
       }
       reconnectTimer.current = window.setTimeout(() => {
-        connect();
+        if (!disposedRef.current) connect();
       }, 1500);
     };
   }, [flushQueue]);
@@ -149,11 +169,14 @@ export function useTrainingSocket() {
   };
 
   useEffect(() => {
+    disposedRef.current = false;
     connect();
     return () => {
+      disposedRef.current = true;
       if (reconnectTimer.current) {
         window.clearTimeout(reconnectTimer.current);
       }
+      commandQueue.current = [];
       ws.current?.close();
     };
   }, [connect]);

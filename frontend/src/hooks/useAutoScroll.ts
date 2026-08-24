@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+﻿import { useEffect, useRef } from "react";
 
 export function useAutoScroll(currentStageIndex: number) {
   const containerRef = useRef<HTMLDivElement>(null);

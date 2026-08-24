@@ -1,4 +1,4 @@
-import { create } from "zustand";
+﻿import { create } from "zustand";
 import { devtools } from "zustand/middleware";
 import type { LayerConfig, ValidationResult } from "../types/simulator";
 import { simulatorApi } from "../hooks/useSimulatorApi";

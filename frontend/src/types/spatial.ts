@@ -1,4 +1,4 @@
-export interface ReceptiveField {
+﻿export interface ReceptiveField {
   stageId: string;
   featureMapIndex: number;
   spatialPosition: [number, number];

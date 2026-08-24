@@ -1,4 +1,4 @@
-export type Architecture = "ANN" | "CNN" | "RNN";
+﻿export type Architecture = "ANN" | "CNN" | "RNN";
 export type Dataset = "mnist" | "catdog";
 
 export type StageStatus = "locked" | "active" | "processing" | "completed";

@@ -1,4 +1,4 @@
-export interface MathVariable {
+﻿export interface MathVariable {
   id: string;
   symbol: string;
   stageId: string;

@@ -1,4 +1,4 @@
-import { create } from "zustand";
+﻿import { create } from "zustand";
 
 export type SimulatorView = "network" | "playground" | "inspector" | "metrics" | "activations" | "sequence" | "compare" | "profile" | "landscape" | "embeddings" | "interpret" | "adversarial" | "compress" | "generate" | "augment" | "experiments";
 

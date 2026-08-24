@@ -1,4 +1,4 @@
-export interface KernelPreset {
+﻿export interface KernelPreset {
   id: string;
   name: string;
   description: string;

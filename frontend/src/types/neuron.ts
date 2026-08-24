@@ -1,4 +1,4 @@
-export interface NeuronIdentity {
+﻿export interface NeuronIdentity {
   stageId: string;
   neuronIndex: number;
   layerType: string;

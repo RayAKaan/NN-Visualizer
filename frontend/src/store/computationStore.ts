@@ -1,4 +1,4 @@
-import { create } from "zustand";
+﻿import { create } from "zustand";
 import { devtools } from "zustand/middleware";
 import type { ActivationInspection, EquationResponse, ForwardStep, WeightInspection } from "../types/simulator";
 import { simulatorApi } from "../hooks/useSimulatorApi";
@@ -10,6 +10,8 @@ interface ComputationState {
   equations: EquationResponse | null;
   weightInspection: WeightInspection | null;
   activationInspection: ActivationInspection | null;
+  setSteps: (steps: ForwardStep[]) => void;
+  setLayerOutputs: (outputs: Record<string, number[]>) => void;
   runFullForward: (input: number[]) => Promise<void>;
   runStepForward: (stepIndex: number) => Promise<void>;
   fetchEquations: (layerIndex: number) => Promise<void>;
@@ -25,6 +27,13 @@ export const useComputationStore = create<ComputationState>()(
     equations: null,
     weightInspection: null,
     activationInspection: null,
+
+    setSteps(steps) {
+      set({ steps });
+    },
+    setLayerOutputs(outputs) {
+      set({ layerOutputs: outputs });
+    },
 
     async runFullForward(input) {
       const { graphId } = useSimulatorStore.getState();

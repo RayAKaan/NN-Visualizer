@@ -1,4 +1,4 @@
-export interface FlowSnapshot {
+﻿export interface FlowSnapshot {
   stageId: string;
   stageIndex: number;
   shape: number[];

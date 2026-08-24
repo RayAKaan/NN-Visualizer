@@ -1,4 +1,4 @@
-import { useLabStore } from "../store/labStore";
+﻿import { useLabStore } from "../store/labStore";
 
 export function useSaliencyMap() {
   const saliencyData = useLabStore((s) => s.saliencyData);

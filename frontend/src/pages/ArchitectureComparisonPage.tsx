@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import { HeaderStrip } from "../components/header/HeaderStrip";
+﻿import React, { useCallback, useEffect, useRef, useState } from "react";
+import { PageHeader } from "@/design-system/components/PageHeader";
+import { NeuralButton } from "@/design-system/components/NeuralButton";
 import { ComparisonCard } from "../components/comparison/ComparisonCard";
 import { PipelineCascade } from "../components/pipeline/PipelineCascade";
 import { ProbabilityLandscape } from "../components/probability/ProbabilityLandscape";
@@ -146,25 +147,31 @@ export function ArchitectureComparisonPage() {
   }, [initCanvas]);
 
   return (
-    <div className="flex flex-col h-full bg-transparent gap-3">
-      <HeaderStrip
+    <div className="flex flex-col h-full bg-transparent gap-4">
+      <PageHeader
         title="Prediction - Architecture Comparison"
         subtitle="Run ANN, CNN, and RNN on the same handwritten input in parallel."
-        actions={[
-          { label: "Run All", onClick: () => void syncPixelsAndPredict() },
-          { label: showTrace ? "Hide Trace" : "Show Trace", onClick: () => toggleTrace(!showTrace) },
-          { label: showGrid ? "Grid On" : "Grid Off", onClick: () => setShowGrid((v) => !v) },
-        ]}
+        actions={
+          <>
+            <NeuralButton size="sm" onClick={() => void syncPixelsAndPredict()}>Run All</NeuralButton>
+            <NeuralButton size="sm" onClick={() => toggleTrace(!showTrace)}>
+              {showTrace ? "Hide Trace" : "Show Trace"}
+            </NeuralButton>
+            <NeuralButton size="sm" onClick={() => setShowGrid((v) => !v)}>
+              {showGrid ? "Grid On" : "Grid Off"}
+            </NeuralButton>
+          </>
+        }
       />
 
-      <div className="rounded-xl border border-cyan-400/10 bg-slate-900/60 p-3">
+      <div className="rounded-xl border border-ember-600/40 bg-white p-3">
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative" style={{ width: DISPLAY, height: DISPLAY }}>
             <canvas
               ref={canvasRef}
               width={INTERNAL}
               height={INTERNAL}
-              className="absolute inset-0 rounded-xl border-2 border-cyan-400/35 bg-black cursor-crosshair"
+              className="absolute inset-0 rounded-xl border-2 border-ember-600/40 bg-ink cursor-crosshair"
               style={{ width: DISPLAY, height: DISPLAY }}
               role="img"
               aria-label="Digit drawing canvas for architecture comparison"
@@ -178,20 +185,20 @@ export function ArchitectureComparisonPage() {
                 className="absolute inset-0 rounded-xl pointer-events-none"
                 style={{
                   backgroundImage:
-                    "linear-gradient(to right, rgba(255,255,255,0.04) 1px, transparent 1px),linear-gradient(to bottom, rgba(255,255,255,0.04) 1px, transparent 1px)",
+                    "linear-gradient(to right, rgba(28,25,23,0.05) 1px, transparent 1px),linear-gradient(to bottom, rgba(28,25,23,0.05) 1px, transparent 1px)",
                   backgroundSize: "calc(100% / 28) calc(100% / 28)",
                 }}
               />
             )}
           </div>
           <div className="flex flex-col gap-2 text-xs">
-            <button onClick={() => void syncPixelsAndPredict()} className="h-9 px-3 rounded border border-cyan-400/45 bg-cyan-500/15 text-cyan-200">
+            <button onClick={() => void syncPixelsAndPredict()} className="h-9 px-3 rounded border border-ember-600/40 bg-ember-600/15 text-ember-700">
               Predict All
             </button>
-            <button onClick={clearCanvas} className="h-9 px-3 rounded border border-rose-400/35 bg-rose-500/10 text-rose-300">
+            <button onClick={clearCanvas} className="h-9 px-3 rounded border border-arch-rnn/40 bg-arch-rnn/12 text-arch-rnn">
               Clear
             </button>
-            <p className="text-slate-400 max-w-[260px]">Auto-runs all models 300ms after drawing stops. Use this view to compare confidence and disagreements.</p>
+            <p className="text-ink-mute max-w-[260px]">Auto-runs all models 300ms after drawing stops. Use this view to compare confidence and disagreements.</p>
           </div>
         </div>
       </div>
@@ -200,7 +207,7 @@ export function ArchitectureComparisonPage() {
         <PipelineCascade />
       </div>
 
-      <div className="flex-1 overflow-auto grid gap-3 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
+      <div className="flex-1 overflow-auto grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
         <ComparisonCard arch="ANN" />
         <ComparisonCard arch="CNN" />
         <ComparisonCard arch="RNN" />

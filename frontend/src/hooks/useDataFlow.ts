@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { renderHeatmap, ACTIVATION_RAMP_DARK } from "../utils/colorRamps";
+﻿import { useMemo } from "react";
+import { renderHeatmap, ACTIVATION_RAMP_LIGHT } from "../utils/colorRamps";
 import type { StageActivation, StageDefinition } from "../types/pipeline";
 import type { FlowSnapshot } from "../types/flow";
 
@@ -83,7 +83,7 @@ export function useDataFlow(stages: StageDefinition[], activations: Record<strin
           shape,
           dimensionality,
           thumbnail: {
-            url: renderHeatmap(new Float32Array(payload), width, height, ACTIVATION_RAMP_DARK),
+            url: renderHeatmap(new Float32Array(payload), width, height, ACTIVATION_RAMP_LIGHT),
             width,
             height,
           },

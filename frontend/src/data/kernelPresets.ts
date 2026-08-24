@@ -1,4 +1,4 @@
-import type { KernelPreset } from "../types/kernelLab";
+﻿import type { KernelPreset } from "../types/kernelLab";
 
 export const KERNEL_PRESETS: KernelPreset[] = [
   {

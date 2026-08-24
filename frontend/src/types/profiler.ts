@@ -1,4 +1,4 @@
-export interface LayerProfile {
+﻿export interface LayerProfile {
   stageId: string;
   flops: number;
   memoryBytes: number;

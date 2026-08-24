@@ -1,4 +1,4 @@
-import { useLabStore } from "../store/labStore";
+﻿import { useLabStore } from "../store/labStore";
 
 export function useWeightInspection() {
   const inspectedStageId = useLabStore((s) => s.inspectedStageId);

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+﻿import { useEffect } from "react";
 import { InputStage } from "../components/lab/InputStage";
 import { LabHeader } from "../components/lab/LabHeader";
 import { PassDirectionIndicator } from "../components/lab/PassDirectionIndicator";
@@ -99,12 +99,12 @@ export default function LabPage() {
   }, [resetPipeline, setArchitecture, setDataset]);
 
   return (
-    <div className="flex h-full flex-col bg-slate-950 text-slate-100">
+    <div className="flex h-full flex-col">
       <LabHeader />
       {flowVisible ? <DataFlowRibbon /> : null}
-      <div ref={ref} className="flex-1 overflow-y-auto px-4 pb-36">
-        <div className={`mx-auto ${flowVisible ? "max-w-5xl lg:ml-20" : "max-w-6xl"}`}>
-          <div className="mt-3 flex items-center justify-between">
+      <div ref={ref} className="flex-1 overflow-y-auto pb-36">
+        <div className="page-shell [--shell-max:72rem] py-4">
+          <div className="mb-3 flex items-center justify-between">
             <PassDirectionIndicator />
             <TrainedVsUntrainedToggle />
           </div>

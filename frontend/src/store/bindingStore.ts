@@ -1,4 +1,4 @@
-import { create } from "zustand";
+﻿import { create } from "zustand";
 import type { BindingState, MathVariable } from "../types/binding";
 
 interface BindingStore extends BindingState {

@@ -1,4 +1,4 @@
-export interface Explanation {
+﻿export interface Explanation {
   icon: string;
   title: string;
   analogy?: string;

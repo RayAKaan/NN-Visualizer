@@ -1,4 +1,4 @@
-import type { Architecture, Dataset, PassDirection } from "./pipeline";
+﻿import type { Architecture, Dataset, PassDirection } from "./pipeline";
 
 export interface Lesson {
   id: string;

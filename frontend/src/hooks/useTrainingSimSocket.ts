@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+﻿import { useCallback, useEffect, useRef, useState } from "react";
 import { SIM_WS_URL } from "../api/client";
 import { useTrainingSimStore } from "../store/trainingSimStore";
 

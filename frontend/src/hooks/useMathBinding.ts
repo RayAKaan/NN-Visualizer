@@ -1,4 +1,4 @@
-import { useBindingStore } from "../store/bindingStore";
+﻿import { useBindingStore } from "../store/bindingStore";
 
 export function useMathBinding() {
   return {

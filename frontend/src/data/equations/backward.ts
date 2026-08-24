@@ -1,4 +1,4 @@
-import type { BackwardEquationSet, StageDefinition } from "../../types/pipeline";
+﻿import type { BackwardEquationSet, StageDefinition } from "../../types/pipeline";
 
 export function getBackwardEquation(stage: StageDefinition): BackwardEquationSet {
   switch (stage.type) {

@@ -1,4 +1,4 @@
-import type { Lesson } from "../../types/tutorial";
+﻿import type { Lesson } from "../../types/tutorial";
 
 export const LESSON_FORWARD_PASS: Lesson = {
   id: "forward-pass-basics",

@@ -1,4 +1,4 @@
-export type ModelType = "ann" | "cnn" | "rnn";
+﻿export type ModelType = "ann" | "cnn" | "rnn";
 
 export interface LayerInfo {
   name: string;
