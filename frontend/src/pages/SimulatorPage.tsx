@@ -1,153 +1,142 @@
-import React, { useEffect, useState } from "react";
-import { SimulatorLayout } from "../components/simulator/SimulatorLayout";
-import { SimulatorToolbar } from "../components/simulator/SimulatorToolbar";
-import { ArchitectureBuilder } from "../components/simulator/ArchitectureBuilder";
-import { DatasetPanel } from "../components/simulator/DatasetPanel";
-import { NetworkCanvas } from "../components/simulator/NetworkCanvas";
-import { ForwardPassPanel } from "../components/simulator/ForwardPassPanel";
-import { EquationPanel } from "../components/simulator/EquationPanel";
-import { InspectorView } from "../components/simulator/InspectorView";
-import { BackwardPassPanel } from "../components/simulator/BackwardPassPanel";
-import { DebugPanel } from "../components/simulator/DebugPanel";
-import { ReplayPanel } from "../components/simulator/ReplayPanel";
-import { LiveMetricsView } from "../components/simulator/LiveMetricsView";
-import { PlaygroundView } from "../components/simulator/PlaygroundView";
-import { ActivationsView } from "../components/simulator/ActivationsView";
-import { SequenceView } from "../components/simulator/SequenceView";
-import { ComparisonView } from "../components/simulator/ComparisonView";
-import { ProfilerView } from "../components/simulator/ProfilerView";
-import { LandscapeView } from "../components/simulator/LandscapeView";
-import { EmbeddingsView } from "../components/simulator/EmbeddingsView";
-import { InterpretView } from "../components/simulator/InterpretView";
-import { AdversarialView } from "../components/simulator/AdversarialView";
-import { CompressionView } from "../components/simulator/CompressionView";
-import { GenerativeView } from "../components/simulator/GenerativeView";
-import { AugmentationView } from "../components/simulator/AugmentationView";
-import { ExperimentsView } from "../components/simulator/ExperimentsView";
-import { AssistantPanel } from "../components/simulator/AssistantPanel";
-import { HyperparameterPanel } from "../components/simulator/HyperparameterPanel";
-import { ImportExportPanel } from "../components/simulator/ImportExportPanel";
-import { TrainingControlBar } from "../components/simulator/TrainingControlBar";
-import { KeyboardShortcutsModal } from "../components/simulator/KeyboardShortcutsModal";
-import { useComputationStore } from "../store/computationStore";
+﻿import React, { useState, useEffect } from "react";
+import { useSessionStore } from "../store/sessionStore";
 import { useSimulatorStore } from "../store/simulatorStore";
+import { useComputationStore } from "../store/computationStore";
+import { useArchitectureStore } from "../store/architectureStore";
+import { UnifiedLayout } from "../components/layout/UnifiedLayout";
+import { BuildTab } from "../components/tabs/BuildTab";
+import { RunInspectTab } from "../components/tabs/RunInspectTab";
+import { AnalyzeTab } from "../components/tabs/AnalyzeTab";
+import { AdvancedTab } from "../components/tabs/AdvancedTab";
+import { TabId } from "../store/sessionStore";
+import axios from "axios";
+
+const API_BASE = "http://127.0.0.1:8000/api";
 
 export default function SimulatorPage() {
-  const activeView = useSimulatorStore((s) => s.activeView);
-  const setActiveView = useSimulatorStore((s) => s.setActiveView);
-  const selectedLayerIndex = useSimulatorStore((s) => s.selectedLayerIndex);
-  const currentInput = useSimulatorStore((s) => s.currentInput);
-  const fetchEquations = useComputationStore((s) => s.fetchEquations);
-  const inspectWeights = useComputationStore((s) => s.inspectWeights);
-  const inspectActivations = useComputationStore((s) => s.inspectActivations);
-  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const activeTab = useSessionStore((s) => s.activeTab);
+  const setActiveTab = useSessionStore((s) => s.setActiveTab);
+  const setDeviceInfo = useSessionStore((s) => s.setDeviceInfo);
+  const setModelBuilt = useSessionStore((s) => s.setModelBuilt);
+  const setDataset = useSessionStore((s) => s.setDataset);
+  const setExecutionStatus = useSessionStore((s) => s.setExecutionStatus);
+  const setGraphData = useSessionStore((s) => s.setGraphData);
+  const setArchitecture = useSessionStore((s) => s.setArchitecture);
+  
+  const [initialized, setInitialized] = useState(false);
 
+  // Quick Mode / Demo on load
   useEffect(() => {
-    const handler = (event: KeyboardEvent) => {
-      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
-      if (event.key === "?" || (event.key === "/" && event.shiftKey)) {
-        setShortcutsOpen((v) => !v);
-        return;
+    const initWithDemo = async () => {
+      try {
+        // Get device info
+        const deviceRes = await axios.get(`${API_BASE}/device/info`);
+        if (deviceRes.data?.data?.type) {
+          setDeviceInfo(deviceRes.data.data);
+        }
+
+        // Build demo model automatically
+        const demoArchitecture = [
+          { type: "input", neurons: 16 },
+          { type: "dense", neurons: 8, activation: "relu" },
+          { type: "output", neurons: 2, activation: "softmax" }
+        ];
+
+        setArchitecture(demoArchitecture);
+        // Keep the architecture builder store in sync so the network
+        // visualization and BUILD tab match the demo graph.
+        useArchitectureStore.getState().setLayers(demoArchitecture as any);
+        
+        // Build the model
+        const buildRes = await axios.post(`${API_BASE}/simulator/architecture/build`, { layers: demoArchitecture });
+        const buildData = buildRes.data || {};
+        const graphId = buildData.graph_id;
+        
+        if (graphId) {
+          setModelBuilt(true, graphId);
+          setGraphData(buildData);
+
+          // Register the graph in the simulator/computation stores so the
+          // command-strip Forward button, "New Sample", and backward pass work.
+          const simStore = useSimulatorStore.getState();
+          simStore.setGraphId(graphId);
+
+          // Run forward pass immediately
+          const randomInput = Array(16).fill(0).map(() => Math.random() * 2 - 1);
+          const forwardRes = await axios.post(`${API_BASE}/simulator/forward/full`, { graph_id: graphId, input: randomInput });
+          const forwardData = forwardRes.data || {};
+
+          if (forwardData.steps) {
+            const outputNeurons = demoArchitecture[demoArchitecture.length - 1].neurons;
+            const target = Array(outputNeurons).fill(0).map((_, i) => (i === 0 ? 1 : 0));
+            simStore.setCurrentInput(randomInput);
+            simStore.setCurrentTarget(target);
+            simStore.setForwardMeta({
+              forwardPassState: "complete",
+              currentStepIndex: 0,
+              totalSteps: forwardData.total_steps ?? forwardData.steps.length,
+            });
+
+            const computationStore = useComputationStore.getState();
+            computationStore.setSteps(forwardData.steps);
+            computationStore.setLayerOutputs(forwardData.layer_outputs || {});
+
+            setExecutionStatus("complete");
+          }
+        }
+        
+        setDataset({
+          name: "Demo Dataset",
+          train_samples: 100,
+          test_samples: 20,
+          input_shape: [16],
+          output_shape: [2]
+        });
+        
+      } catch (error) {
+        console.log("Demo initialization - backend may not be running");
+        // Set default architecture even if backend fails
+        setArchitecture([
+          { type: "input", neurons: 16 },
+          { type: "dense", neurons: 8, activation: "relu" },
+          { type: "output", neurons: 2, activation: "softmax" }
+        ]);
       }
-      if (event.key === "Escape") {
-        setShortcutsOpen(false);
-        return;
-      }
-      const key = event.key;
-      const map: Record<string, typeof activeView> = {
-        "1": "network",
-        "2": "playground",
-        "3": "metrics",
-        "4": "inspector",
-        "5": "activations",
-        "6": "sequence",
-        "7": "compare",
-        "8": "profile",
-        "9": "landscape",
-        "0": "embeddings",
-        "i": "interpret",
-        "a": "adversarial",
-        "c": "compress",
-        "g": "generate",
-        "u": "augment",
-        "e": "experiments",
-      };
-      if (map[key]) setActiveView(map[key]);
+      
+      setInitialized(true);
     };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [setActiveView]);
 
-  useEffect(() => {
-    void fetchEquations(selectedLayerIndex);
-    void inspectWeights(selectedLayerIndex);
-    if (currentInput) {
-      void inspectActivations(selectedLayerIndex, currentInput);
+    initWithDemo();
+  }, []);
+
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case "build":
+        return <BuildTab />;
+      case "run":
+      case "inspect":
+        return <RunInspectTab />;
+      case "analyze":
+        return <AnalyzeTab />;
+      case "advanced":
+        return <AdvancedTab />;
+      default:
+        return <BuildTab />;
     }
-  }, [fetchEquations, inspectActivations, inspectWeights, selectedLayerIndex, currentInput]);
+  };
 
-  return (
-    <>
-      <SimulatorLayout
-        header={<SimulatorToolbar />}
-        left={
-          <>
-            <ArchitectureBuilder />
-            <DatasetPanel />
-            <HyperparameterPanel />
-            <ImportExportPanel />
-          </>
-        }
-        center={
-          activeView === "network" ? (
-            <NetworkCanvas />
-          ) : activeView === "metrics" ? (
-            <LiveMetricsView />
-          ) : activeView === "activations" ? (
-            <ActivationsView />
-          ) : activeView === "sequence" ? (
-            <SequenceView />
-          ) : activeView === "compare" ? (
-            <ComparisonView />
-          ) : activeView === "profile" ? (
-            <ProfilerView />
-          ) : activeView === "landscape" ? (
-            <LandscapeView />
-          ) : activeView === "embeddings" ? (
-            <EmbeddingsView />
-          ) : activeView === "interpret" ? (
-            <InterpretView />
-          ) : activeView === "adversarial" ? (
-            <AdversarialView />
-          ) : activeView === "compress" ? (
-            <CompressionView />
-          ) : activeView === "generate" ? (
-            <GenerativeView />
-          ) : activeView === "augment" ? (
-            <AugmentationView />
-          ) : activeView === "experiments" ? (
-            <ExperimentsView />
-          ) : activeView === "inspector" ? (
-            <InspectorView />
-          ) : activeView === "playground" ? (
-            <PlaygroundView />
-          ) : (
-            <div className="p-4 text-sm text-slate-300">Playground view coming next.</div>
-          )
-        }
-        right={
-          <>
-            <EquationPanel />
-            <ForwardPassPanel />
-            <BackwardPassPanel />
-            <DebugPanel />
-            <ReplayPanel />
-          </>
-        }
-        footer={<TrainingControlBar />}
-      />
-      <AssistantPanel />
-      <KeyboardShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
-    </>
-  );
+  // Show loading while demo initializes
+  if (!initialized) {
+    return (
+      <div className="loading-screen">
+        <div className="loading-content">
+          <div className="loading-spinner" />
+          <h2>Neurofluxion</h2>
+          <p>Loading demo model...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return <UnifiedLayout>{renderTabContent()}</UnifiedLayout>;
 }
