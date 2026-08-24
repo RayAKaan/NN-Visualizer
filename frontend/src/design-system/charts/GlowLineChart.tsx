@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+﻿import React, { useEffect, useMemo, useRef, useState } from "react";
 
 export interface GlowLineChartProps {
   values: number[];
@@ -89,7 +89,7 @@ export function GlowLineChart({ values, color, label, height = 180 }: GlowLineCh
         // fill
         const fill = ctx.createLinearGradient(0, 0, 0, h);
         fill.addColorStop(0, `${color}22`);
-        fill.addColorStop(1, "rgba(0,0,0,0)");
+        fill.addColorStop(1, `${color}00`);
         ctx.fillStyle = fill;
         ctx.beginPath();
         values.forEach((v, i) => {

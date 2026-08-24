@@ -1,4 +1,4 @@
-import { Renderer, Program, Mesh, Triangle } from 'ogl';
+﻿import { Renderer, Program, Mesh, Triangle } from 'ogl';
 import React, { useEffect, useRef, useState } from 'react';
 import { useReducedMotion } from '@/design-system/hooks/useReducedMotion';
 import { useSimulatorStore } from '@/store/simulatorStore';
@@ -31,7 +31,7 @@ export function NeuralAmbient({ className }: NeuralAmbientProps) {
     }
     const gl = renderer.gl;
     container.appendChild(gl.canvas);
-    gl.clearColor(0, 0, 0, 1);
+    gl.clearColor(0.98, 0.968, 0.949, 1);
 
     const geometry = new Triangle(gl);
     const program = new Program(gl, {

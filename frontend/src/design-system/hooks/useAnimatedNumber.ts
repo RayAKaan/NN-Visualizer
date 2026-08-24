@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+﻿import { useEffect, useRef, useState } from 'react';
 
 export function useAnimatedNumber(value: number, duration = 300) {
   const [display, setDisplay] = useState(value);

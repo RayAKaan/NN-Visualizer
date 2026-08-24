@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+﻿import { useEffect, useRef, useState } from 'react';
 
 export function useSpringValue(target: number, stiffness = 260, damping = 26) {
   const [value, setValue] = useState(target);

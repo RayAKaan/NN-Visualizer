@@ -1,4 +1,4 @@
-export const animations = {
+﻿export const animations = {
   easeOutExpo: 'cubic-bezier(0.16, 1, 0.3, 1)',
   durations: {
     fast: '150ms',

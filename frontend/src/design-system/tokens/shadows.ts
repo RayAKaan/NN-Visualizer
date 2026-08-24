@@ -1,5 +1,6 @@
-export const shadows = {
-  panel: '0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(200, 206, 228, 0.05)',
-  elevated: '0 16px 64px rgba(0, 0, 0, 0.5)',
-  ring: '0 0 0 1px rgba(59, 130, 246, 0.1)',
+﻿export const shadows = {
+  panel: '0 1px 2px rgba(28, 25, 23, 0.04), 0 4px 16px rgba(28, 25, 23, 0.06)',
+  elevated: '0 2px 4px rgba(28, 25, 23, 0.06), 0 16px 48px rgba(28, 25, 23, 0.14)',
+  ring: '0 0 0 1px rgba(28, 25, 23, 0.08)',
+  emberRing: '0 0 0 3px rgba(194, 65, 12, 0.18)',
 } as const;

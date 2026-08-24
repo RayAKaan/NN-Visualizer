@@ -1,4 +1,4 @@
-export const ambientVertex = `
+﻿export const ambientVertex = `
 attribute vec2 position;
 varying vec2 vUv;
 void main() {
@@ -50,11 +50,11 @@ void main() {
   if (uState > 1.5 && uState < 2.5) {
     pulse = sin(uTime * 2.0) * 0.5 + 0.5;
   }
-  float intensity = (n * 0.035 + g * 0.02 + ripple * 0.02 + pulse * 0.02) * uBrightness;
+  float intensity = (n * 0.10 + g * 0.05 + ripple * 0.06 + pulse * 0.06) * uBrightness;
 
-  vec3 base = vec3(0.05, 0.06, 0.08);
-  vec3 accent = vec3(0.08, 0.15, 0.25);
-  vec3 color = mix(base, accent, intensity * 6.0);
-  gl_FragColor = vec4(color * intensity, 1.0);
+  vec3 base = vec3(0.980, 0.968, 0.949);
+  vec3 accent = vec3(0.878, 0.620, 0.435);
+  vec3 color = mix(base, accent, clamp(intensity * 3.0, 0.0, 0.45));
+  gl_FragColor = vec4(color, 1.0);
 }
 `;

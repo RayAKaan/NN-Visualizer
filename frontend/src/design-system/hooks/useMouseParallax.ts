@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 
 export function useMouseParallax(depth = 2) {
   const [offset, setOffset] = useState({ x: 0, y: 0 });

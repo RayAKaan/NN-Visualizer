@@ -1,4 +1,4 @@
-export const typography = {
+﻿export const typography = {
   families: {
     display: '"Inter", system-ui, -apple-system, sans-serif',
     ui: '"Inter", system-ui, -apple-system, sans-serif',
@@ -6,9 +6,9 @@ export const typography = {
     equation: '"JetBrains Mono", ui-monospace, monospace',
   },
   sizes: {
-    xs: '11px',
-    sm: '12px',
-    base: '13px',
+    xs: '12px',
+    sm: '13px',
+    base: '14px',
     md: '14px',
     lg: '16px',
     xl: '20px',

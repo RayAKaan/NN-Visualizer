@@ -1,22 +1,22 @@
-export const neuralPalette = {
-  void: '#08090D',
-  abyss: '#0C0E14',
-  obsidian: '#12141C',
-  slate: '#1A1D28',
-  graphite: '#242836',
-  steel: '#3A3F52',
-  silver: '#6B7394',
-  cloud: '#9BA3C2',
-  pearl: '#C8CEE4',
-  white: '#E8ECF8',
-  ash: '#4A5068',
-  synapse: { dim: '#1A3A5C', base: '#3B82F6', bright: '#60A5FA', glow: '#93C5FD' },
-  axon: { dim: '#0D3D3F', base: '#06B6D4', bright: '#22D3EE', glow: '#67E8F9' },
-  dendrite: { dim: '#2D1B4E', base: '#8B5CF6', bright: '#A78BFA', glow: '#C4B5FD' },
-  soma: { dim: '#0D2818', base: '#22C55E', bright: '#4ADE80', glow: '#86EFAC' },
-  cortex: { dim: '#3D2008', base: '#F59E0B', bright: '#FBBF24', glow: '#FDE68A' },
-  lesion: { dim: '#4A0810', base: '#E11D48', bright: '#F43F5E', glow: '#FB7185' },
-  myelin: { dim: '#3B0D2E', base: '#EC4899', bright: '#F472B6', glow: '#F9A8D4' },
+﻿export const neuralPalette = {
+  void: '#FAF7F2',
+  abyss: '#FFFFFF',
+  obsidian: '#FFFFFF',
+  slate: '#F3EEE5',
+  graphite: '#D8CFC0',
+  steel: '#C9BEAE',
+  silver: '#57534E',
+  cloud: '#44403C',
+  pearl: '#292524',
+  white: '#1C1917',
+  ash: '#79716B',
+  synapse: { dim: '#E3F0FA', base: '#0072B2', bright: '#004E7E', glow: '#8FC6E8' },
+  axon: { dim: '#E0F3EE', base: '#00806A', bright: '#005947', glow: '#7FC7B4' },
+  dendrite: { dim: '#F5E6F0', base: '#A64D85', bright: '#7C3560', glow: '#D9A8C6' },
+  soma: { dim: '#E2F2E7', base: '#15803D', bright: '#0F5C2C', glow: '#86CB9E' },
+  cortex: { dim: '#FBEDDD', base: '#B45309', bright: '#8A3E06', glow: '#E5B072' },
+  lesion: { dim: '#FBE7E7', base: '#B91C1C', bright: '#8F1414', glow: '#E58C8C' },
+  myelin: { dim: '#F5E6F0', base: '#A64D85', bright: '#7C3560', glow: '#D9A8C6' },
 } as const;
 
 export type NeuralAccent = keyof typeof neuralPalette | 'synapse' | 'axon' | 'dendrite' | 'soma' | 'cortex' | 'lesion' | 'myelin';
@@ -38,37 +38,37 @@ export function lerpColor(a: string, b: string, t: number): string {
 
 export function activationColor(value: number, maxAbs: number = 1): string {
   const t = Math.abs(value) / maxAbs;
-  if (value > 0) return lerpColor(neuralPalette.axon.dim, neuralPalette.axon.glow, t);
-  if (value < 0) return lerpColor(neuralPalette.dendrite.dim, neuralPalette.dendrite.glow, t);
+  if (value > 0) return lerpColor(neuralPalette.axon.base, neuralPalette.axon.bright, t);
+  if (value < 0) return lerpColor(neuralPalette.dendrite.base, neuralPalette.dendrite.bright, t);
   return neuralPalette.steel;
 }
 
 export function weightColor(value: number, maxAbs: number = 1): string {
   const t = Math.min(Math.abs(value) / maxAbs, 1);
-  if (value >= 0) return lerpColor(neuralPalette.graphite, neuralPalette.axon.bright, t);
-  return lerpColor(neuralPalette.graphite, neuralPalette.dendrite.bright, t);
+  if (value >= 0) return lerpColor('#EDE7DB', neuralPalette.axon.base, t);
+  return lerpColor('#EDE7DB', neuralPalette.dendrite.base, t);
 }
 
 export function gradientHealthColor(norm: number): string {
-  if (norm < 1e-7) return neuralPalette.lesion.bright;
-  if (norm < 1e-4) return neuralPalette.cortex.bright;
-  if (norm > 100) return neuralPalette.lesion.bright;
-  if (norm > 10) return neuralPalette.cortex.bright;
-  return neuralPalette.soma.bright;
+  if (norm < 1e-7) return neuralPalette.lesion.base;
+  if (norm < 1e-4) return neuralPalette.cortex.base;
+  if (norm > 100) return neuralPalette.lesion.base;
+  if (norm > 10) return neuralPalette.cortex.base;
+  return neuralPalette.soma.base;
 }
 
+/** Soft warm shadow halo - replaces the neon bloom glows of the dark theme. */
 export function glowStyle(color: string, intensity: number = 0.5): string {
   const clamped = Math.max(0, Math.min(1, intensity));
-  const alpha = Math.round(clamped * 80).toString(16).padStart(2, '0');
-  const alphaHalf = Math.round(clamped * 40).toString(16).padStart(2, '0');
-  const alphaQuarter = Math.round(clamped * 20).toString(16).padStart(2, '0');
-  return `0 0 ${8 + clamped * 16}px ${color}${alpha}, 0 0 ${20 + clamped * 30}px ${color}${alphaHalf}, 0 0 ${40 + clamped * 60}px ${color}${alphaQuarter}`;
+  const alpha = Math.round(clamped * 60).toString(16).padStart(2, '0');
+  const alphaHalf = Math.round(clamped * 28).toString(16).padStart(2, '0');
+  return `0 2px ${6 + clamped * 10}px ${color}${alpha}, 0 6px ${18 + clamped * 22}px ${color}${alphaHalf}`;
 }
 
 export function neuralGlow(color: string, intensity: number = 0.5): string {
   const clamped = Math.max(0, Math.min(1, intensity));
-  const tight = Math.round(clamped * 90).toString(16).padStart(2, '0');
-  const mid = Math.round(clamped * 55).toString(16).padStart(2, '0');
-  const wide = Math.round(clamped * 30).toString(16).padStart(2, '0');
-  return `0 0 ${8 + clamped * 8}px ${color}${tight}, 0 0 ${20 + clamped * 20}px ${color}${mid}, 0 0 ${40 + clamped * 40}px ${color}${wide}`;
+  const tight = Math.round(clamped * 70).toString(16).padStart(2, '0');
+  const mid = Math.round(clamped * 35).toString(16).padStart(2, '0');
+  const wide = Math.round(clamped * 16).toString(16).padStart(2, '0');
+  return `0 0 ${4 + clamped * 6}px ${color}${tight}, 0 0 ${12 + clamped * 14}px ${color}${mid}, 0 4px ${24 + clamped * 24}px ${color}${wide}`;
 }
