@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useSessionStore } from "../store/sessionStore";
 import { useSimulatorStore } from "../store/simulatorStore";
 import { useComputationStore } from "../store/computationStore";
@@ -9,9 +9,7 @@ import { RunInspectTab } from "../components/tabs/RunInspectTab";
 import { AnalyzeTab } from "../components/tabs/AnalyzeTab";
 import { AdvancedTab } from "../components/tabs/AdvancedTab";
 import { TabId } from "../store/sessionStore";
-import axios from "axios";
-
-const API_BASE = "http://127.0.0.1:8000/api";
+import { apiClient } from "../api/client";
 
 export default function SimulatorPage() {
   const activeTab = useSessionStore((s) => s.activeTab);
@@ -24,13 +22,18 @@ export default function SimulatorPage() {
   const setArchitecture = useSessionStore((s) => s.setArchitecture);
   
   const [initialized, setInitialized] = useState(false);
+  const [demoReady, setDemoReady] = useState(false);
 
   // Quick Mode / Demo on load
   useEffect(() => {
+    setDemoReady(false);
+    setModelBuilt(false);
+    setDataset(null);
+    setExecutionStatus("idle");
     const initWithDemo = async () => {
       try {
         // Get device info
-        const deviceRes = await axios.get(`${API_BASE}/device/info`);
+        const deviceRes = await apiClient.get("/api/device/info");
         if (deviceRes.data?.data?.type) {
           setDeviceInfo(deviceRes.data.data);
         }
@@ -48,7 +51,7 @@ export default function SimulatorPage() {
         useArchitectureStore.getState().setLayers(demoArchitecture as any);
         
         // Build the model
-        const buildRes = await axios.post(`${API_BASE}/simulator/architecture/build`, { layers: demoArchitecture });
+        const buildRes = await apiClient.post("/api/simulator/architecture/build", { layers: demoArchitecture });
         const buildData = buildRes.data || {};
         const graphId = buildData.graph_id;
         
@@ -63,7 +66,7 @@ export default function SimulatorPage() {
 
           // Run forward pass immediately
           const randomInput = Array(16).fill(0).map(() => Math.random() * 2 - 1);
-          const forwardRes = await axios.post(`${API_BASE}/simulator/forward/full`, { graph_id: graphId, input: randomInput });
+          const forwardRes = await apiClient.post("/api/simulator/forward/full", { graph_id: graphId, input: randomInput });
           const forwardData = forwardRes.data || {};
 
           if (forwardData.steps) {
@@ -82,17 +85,16 @@ export default function SimulatorPage() {
             computationStore.setLayerOutputs(forwardData.layer_outputs || {});
 
             setExecutionStatus("complete");
+            setDataset({
+              name: "Demo input generator",
+              train_samples: 0,
+              test_samples: 0,
+              input_shape: [16],
+              output_shape: [2]
+            });
+            setDemoReady(true);
           }
         }
-        
-        setDataset({
-          name: "Demo Dataset",
-          train_samples: 100,
-          test_samples: 20,
-          input_shape: [16],
-          output_shape: [2]
-        });
-        
       } catch (error) {
         console.log("Demo initialization - backend may not be running");
         // Set default architecture even if backend fails
@@ -138,5 +140,5 @@ export default function SimulatorPage() {
     );
   }
 
-  return <UnifiedLayout>{renderTabContent()}</UnifiedLayout>;
+  return <UnifiedLayout demoMode={demoReady}>{renderTabContent()}</UnifiedLayout>;
 }

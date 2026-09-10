@@ -14,8 +14,11 @@ import { BackwardPassPanel } from "../simulator/BackwardPassPanel";
 import { EquationPanel } from "../simulator/EquationPanel";
 import { NetworkCanvas } from "../simulator/NetworkCanvas";
 import axios from "axios";
-
-const API_BASE = "http://127.0.0.1:8000/api";
+import { apiClient } from "../../api/client";
+import { WORKSPACE_EVENTS } from "../../utils/workspaceEvents";
+import { useTrainingSimSocket } from "../../hooks/useTrainingSimSocket";
+import { useDatasetStore } from "../../store/datasetStore";
+import { useTrainingSimStore } from "../../store/trainingSimStore";
 
 export function RunInspectTab() {
   const [selectedDevice, setSelectedDevice] = useState<'auto' | 'gpu' | 'cpu'>('auto');
@@ -43,9 +46,6 @@ export function RunInspectTab() {
   const setLayerData = useSessionStore((s) => s.setLayerData);
   const setModelBuilt = useSessionStore((s) => s.setModelBuilt);
   const setGraphData = useSessionStore((s) => s.setGraphData);
-  const updateProgress = useSessionStore((s) => s.updateProgress);
-  const setLossHistory = useSessionStore((s) => s.setLossHistory);
-  const setMetrics = useSessionStore((s) => s.setMetrics);
   
   const setGraphId = useSimulatorStore((s) => s.setGraphId);
   const graphId = useSimulatorStore((s) => s.graphId);
@@ -53,8 +53,16 @@ export function RunInspectTab() {
   const setCurrentTarget = useSimulatorStore((s) => s.setCurrentTarget);
   const setForwardMeta = useSimulatorStore((s) => s.setForwardMeta);
   const setArchitectureLayers = useArchitectureStore((s) => s.setLayers);
+  const datasetId = useDatasetStore((s) => s.datasetId);
+  const simulatorEpoch = useTrainingSimStore((s) => s.currentEpoch);
+  const simulatorTotalEpochs = useTrainingSimStore((s) => s.totalEpochs);
+  const { isConnected: isTrainingSocketConnected, status: simulatorTrainingStatus, send: sendTrainingCommand } = useTrainingSimSocket();
 
-  const canExecute = graphId || (modelBuilt && architecture.length > 0);
+  const displayEpoch = simulatorTrainingStatus === "training" || simulatorTrainingStatus === "paused" || simulatorTrainingStatus === "complete" ? simulatorEpoch + 1 : currentEpoch;
+  const displayTotalEpochs = simulatorTotalEpochs || totalEpochs || 5;
+  const displayProgress = simulatorTotalEpochs > 0 ? Math.min(1, (simulatorEpoch + 1) / simulatorTotalEpochs) : progress;
+  const canExecute = Boolean(graphId || (modelBuilt && architecture.length > 0));
+  const canTrain = canExecute && Boolean(datasetId) && isTrainingSocketConnected;
 
   const handleBuild = async () => {
     if (architecture.length === 0) return;
@@ -64,7 +72,7 @@ export function RunInspectTab() {
     setCurrentOperation('building');
     
     try {
-      const res = await axios.post(`${API_BASE}/simulator/architecture/build`, { layers: architecture });
+      const res = await apiClient.post("/api/simulator/architecture/build", { layers: architecture });
       const data = res.data;
       
       if (data.graph_id) {
@@ -99,8 +107,11 @@ export function RunInspectTab() {
   };
 
   const handleRunForward = async () => {
-    if (!modelBuilt) return;
-    
+    if (architecture.length === 0) {
+      setError("Build an architecture first.");
+      return;
+    }
+
     setExecuting(true);
     setExecutionStatus('running');
     setCurrentOperation('forward');
@@ -110,7 +121,7 @@ export function RunInspectTab() {
       
       // If no graphId, build first
       if (!currentGraphId) {
-        const buildRes = await axios.post(`${API_BASE}/simulator/architecture/build`, { layers: architecture });
+        const buildRes = await apiClient.post("/api/simulator/architecture/build", { layers: architecture });
         const buildData = buildRes.data;
         
         if (buildData.graph_id) {
@@ -129,7 +140,7 @@ export function RunInspectTab() {
       const randomInput = Array(inputSize).fill(0).map(() => Math.random() * 2 - 1);
       setCurrentInput(randomInput);
       
-      const res = await axios.post(`${API_BASE}/simulator/forward/full`, { 
+      const res = await apiClient.post("/api/simulator/forward/full", {
         graph_id: currentGraphId, 
         input: randomInput 
       });
@@ -191,6 +202,31 @@ export function RunInspectTab() {
     setExecuting(false);
   };
 
+  useEffect(() => {
+    const onRunForwardCommand = () => void handleRunForward();
+    window.addEventListener(WORKSPACE_EVENTS.runForward, onRunForwardCommand);
+    return () => window.removeEventListener(WORKSPACE_EVENTS.runForward, onRunForwardCommand);
+  }, [handleRunForward]);
+
+  useEffect(() => {
+    if (simulatorTrainingStatus === "training" || simulatorTrainingStatus === "paused") {
+      setExecutionStatus("running");
+      setCurrentOperation("training");
+    } else if (simulatorTrainingStatus === "complete") {
+      setExecutionStatus("complete");
+      setCurrentOperation(null);
+      setExecuting(false);
+    } else if (simulatorTrainingStatus === "error") {
+      setExecutionStatus("error");
+      setCurrentOperation(null);
+      setExecuting(false);
+    } else if (simulatorTrainingStatus === "stopped") {
+      setExecutionStatus("idle");
+      setCurrentOperation(null);
+      setExecuting(false);
+    }
+  }, [simulatorTrainingStatus, setCurrentOperation, setExecutionStatus]);
+
   const handleRunBackward = async () => {
     if (!canExecute) return;
 
@@ -203,7 +239,7 @@ export function RunInspectTab() {
 
       // If no graphId, build first
       if (!currentGraphId) {
-        const buildRes = await axios.post(`${API_BASE}/simulator/architecture/build`, { layers: architecture });
+        const buildRes = await apiClient.post("/api/simulator/architecture/build", { layers: architecture });
         const buildData = buildRes.data;
 
         if (buildData.graph_id) {
@@ -245,33 +281,53 @@ export function RunInspectTab() {
   };
 
   const handleTrain = async () => {
-    if (!canExecute) return;
-    
-    setExecuting(true);
-    setExecutionStatus('running');
-    setCurrentOperation('training');
-    
-    try {
-      for (let epoch = 1; epoch <= 5; epoch++) {
-        updateProgress(epoch, epoch / 5);
-        await new Promise(r => setTimeout(r, 500));
-      }
-      
-      setLossHistory([0.5, 0.4, 0.3, 0.25, 0.2]);
-      setMetrics({ train_loss: 0.2, test_loss: 0.25, accuracy: 0.85 });
-      setExecutionStatus('complete');
-      setCurrentOperation(null);
-    } catch (error) {
-      setExecutionStatus('error');
+    if (!canExecute || !datasetId) {
+      setError("Build the network and load a dataset before training.");
+      return;
     }
-    
-    setExecuting(false);
+    if (!isTrainingSocketConnected) {
+      setError("Simulator training is offline. Reconnect to the backend first.");
+      return;
+    }
+
+    setExecuting(true);
+    setExecutionStatus("running");
+    setCurrentOperation("training");
+    let trainingGraphId = graphId;
+    if (!trainingGraphId) {
+      await handleBuild();
+      trainingGraphId = useSimulatorStore.getState().graphId;
+    }
+    if (!trainingGraphId) {
+      setError("Build the network before starting simulator training.");
+      setExecuting(false);
+      return;
+    }
+    // This is the existing, explicitly user-initiated simulator training path.
+    // Never start it during bootstrap, demo setup, or validation; progress must
+    // come from the real WebSocket events rather than fabricated checkpoints.
+    sendTrainingCommand({
+      action: "start",
+      graph_id: trainingGraphId,
+      dataset_id: datasetId,
+      config: {
+        epochs: 5,
+        batch_size: 16,
+        learning_rate: 0.01,
+        optimizer: "adam",
+        loss_function: "bce",
+        l2_lambda: 0,
+      },
+    });
+    // The simulator training socket owns progress and metrics. Keep the run
+    // controls responsive while it streams actual backend events.
+    window.setTimeout(() => setExecuting(false), 350);
   };
 
   const handleDeviceChange = async (device: string) => {
     setSelectedDevice(device as any);
     try {
-      await axios.post(`${API_BASE}/execute/device`, null, { params: { device } });
+      await apiClient.post("/api/execute/device", null, { params: { device } });
     } catch (error) {
       console.log("Device change failed");
     }
@@ -285,6 +341,11 @@ export function RunInspectTab() {
   return (
     <div className="tab-content run-inspect-tab">
       <div className="run-inspect-main">
+        <section className="simulator-tab-intro">
+          <span className="simulator-tab-kicker">Run</span>
+          <h2>Execute and inspect</h2>
+          <p>Build once, run a forward pass, then step through the values. Backward and training controls stay available when the graph and data are ready.</p>
+        </section>
         {/* Controls Section */}
         <NeuralPanel className="controls-panel" variant="elevated">
           <h3 className="section-title"><Play size={14} />Run Neural Network</h3>
@@ -326,7 +387,7 @@ export function RunInspectTab() {
               <NeuralButton
                 variant="secondary"
                 onClick={handleTrain}
-                disabled={!modelBuilt || !datasetLoaded || executing}
+                disabled={!canTrain || executing}
               >
                 <RefreshCw size={14} /> Train
               </NeuralButton>
@@ -339,10 +400,10 @@ export function RunInspectTab() {
                 {currentOperation === 'building' && 'Building model...'}
                 {currentOperation === 'forward' && 'Running forward pass...'}
                 {currentOperation === 'backward' && 'Computing gradients...'}
-                {currentOperation === 'training' && `Training epoch ${currentEpoch}/${totalEpochs || 5}...`}
+                {currentOperation === 'training' && `Training epoch ${displayEpoch}/${displayTotalEpochs}...`}
               </NeuralBadge>
               {currentOperation === 'training' && (
-                <NeuralProgress value={progress * 100} />
+                <NeuralProgress value={displayProgress * 100} label="Simulator training progress" showValue />
               )}
             </div>
           )}
@@ -364,24 +425,28 @@ export function RunInspectTab() {
             <h4 className="context-title">Select Layer</h4>
             <div className="layer-buttons">
               <button
+                type="button"
                 className={`layer-btn ${selectedLayer === null ? 'active' : ''}`}
                 onClick={() => setSelectedLayer(null)}
               >
                 All
               </button>
               <button
+                type="button"
                 className={`layer-btn ${selectedLayer === 0 ? 'active' : ''}`}
                 onClick={() => setSelectedLayer(0)}
               >
                 Input
               </button>
               <button
+                type="button"
                 className={`layer-btn ${selectedLayer === 1 ? 'active' : ''}`}
                 onClick={() => setSelectedLayer(1)}
               >
                 Hidden 1
               </button>
               <button
+                type="button"
                 className={`layer-btn ${selectedLayer === 2 ? 'active' : ''}`}
                 onClick={() => setSelectedLayer(2)}
               >
@@ -404,6 +469,7 @@ export function RunInspectTab() {
           <h4 className="context-title"><Settings2 size={13} />Device</h4>
           <div className="device-selector">
             <button
+              type="button"
               className={`device-btn ${selectedDevice === 'auto' ? 'active' : ''}`}
               onClick={() => handleDeviceChange('auto')}
               disabled={executing}
@@ -411,6 +477,7 @@ export function RunInspectTab() {
               Auto
             </button>
             <button
+              type="button"
               className={`device-btn ${selectedDevice === 'gpu' ? 'active' : ''}`}
               onClick={() => handleDeviceChange('gpu')}
               disabled={executing || !deviceInfo.cuda_available}
@@ -418,6 +485,7 @@ export function RunInspectTab() {
               GPU
             </button>
             <button
+              type="button"
               className={`device-btn ${selectedDevice === 'cpu' ? 'active' : ''}`}
               onClick={() => handleDeviceChange('cpu')}
               disabled={executing}

@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import { useComparisonStore, type Architecture } from "../../store/predictionStore";
 
 const ARCHS: Architecture[] = ["ANN", "CNN", "RNN"];
@@ -20,6 +20,7 @@ export function ProbabilityLandscape() {
         <div className="flex gap-1">
           {(["bars", "radial", "terrain"] as const).map((mode) => (
             <button
+              type="button"
               key={mode}
               onClick={() => toggleViewMode(mode)}
               className={`h-8 px-2 rounded border text-xs uppercase ${viewMode === mode ? "border-ember-600/40 bg-ember-600/15 text-ember-700" : "border-barley-linestrong bg-barley-sunken text-ink-soft"}`}

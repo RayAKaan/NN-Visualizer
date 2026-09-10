@@ -2,6 +2,9 @@
 __pycache__/
 *.pyc
 *.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 venv/
 .venv/
 
@@ -28,6 +31,7 @@ server_err.log
 server_stderr.log
 server_stdout.log
 *.log
+.eslintcache
 
 # Auto-generated docs & test scripts (not part of shipped project)
 ANALYSIS_REPORT.md

@@ -1,4 +1,4 @@
-﻿export function SaliencyLegend() {
+export function SaliencyLegend() {
   return (
     <div>
       <div className="mb-1 text-xs text-ink-mute">Saliency scale</div>

@@ -1,4 +1,4 @@
-﻿import type { Architecture, Dataset } from "../../types/pipeline";
+import type { Architecture, Dataset } from "../../types/pipeline";
 import { PageHeader } from "@/design-system/components/PageHeader";
 import { NeuralButton } from "@/design-system/components/NeuralButton";
 import { useLabStore } from "../../store/labStore";
@@ -17,8 +17,10 @@ export function LabHeader() {
     <header className="border-b border-barley-line bg-barley-page/85 backdrop-blur-md">
       <div className="page-shell [--shell-max:72rem] py-3">
         <PageHeader
-          title="Neurofluxion Lab"
-          subtitle="Follow one signal through every layer — forward, then back."
+          eyebrow="Input → Computation → Behavior → Explanation"
+          title="Lab"
+          subtitle="Follow one signal through every layer, then open the explanation you need."
+          status={<span className={`lab-run-status ${isRunning ? "is-running" : ""}`} role="status"><span aria-hidden="true" />{isRunning ? "Pass running" : "Ready to explore"}</span>}
           actions={
             <>
               <div className="flex items-center gap-2" role="group" aria-label="Architecture">

@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { PageHeader } from "@/design-system/components/PageHeader";
 import { NeuralButton } from "@/design-system/components/NeuralButton";
 import { ComparisonCard } from "../components/comparison/ComparisonCard";
@@ -89,7 +89,7 @@ export function ArchitectureComparisonPage() {
     debounceRef.current = window.setTimeout(syncPixelsAndPredict, 300);
   }, [syncPixelsAndPredict]);
 
-  const onDraw = (e: React.MouseEvent) => {
+  const onDraw = (e: React.PointerEvent) => {
     if (!drawingRef.current || !canvasRef.current) return;
     const ctx = canvasRef.current.getContext("2d");
     if (!ctx) return;
@@ -111,8 +111,9 @@ export function ArchitectureComparisonPage() {
     schedulePredict();
   };
 
-  const startDraw = (e: React.MouseEvent) => {
+  const startDraw = (e: React.PointerEvent) => {
     drawingRef.current = true;
+    e.currentTarget.setPointerCapture(e.pointerId);
     const ctx = canvasRef.current?.getContext("2d");
     if (!ctx || !canvasRef.current) return;
     const rect = canvasRef.current.getBoundingClientRect();
@@ -127,7 +128,8 @@ export function ArchitectureComparisonPage() {
     schedulePredict();
   };
 
-  const stopDraw = () => {
+  const stopDraw = (e?: React.PointerEvent) => {
+    if (e && e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
     drawingRef.current = false;
     lastRef.current = null;
     schedulePredict();
@@ -149,8 +151,9 @@ export function ArchitectureComparisonPage() {
   return (
     <div className="flex flex-col h-full bg-transparent gap-4">
       <PageHeader
-        title="Prediction - Architecture Comparison"
-        subtitle="Run ANN, CNN, and RNN on the same handwritten input in parallel."
+        eyebrow="Legacy same-input exploration"
+        title="Architecture comparison"
+        subtitle="Explore the legacy ANN/CNN/RNN digit path without treating different tasks or registry models as a benchmark."
         actions={
           <>
             <NeuralButton size="sm" onClick={() => void syncPixelsAndPredict()}>Run All</NeuralButton>
@@ -164,6 +167,10 @@ export function ArchitectureComparisonPage() {
         }
       />
 
+      <div className="rounded-lg border border-sky-700/20 bg-sky-700/5 px-3 py-2 text-xs leading-relaxed text-sky-900" role="note">
+        This view compares the existing legacy architecture path on one handwritten digit input. It does not compare the current pretrained registry models across MNIST, ImageNet, and IMDB tasks.
+      </div>
+
       <div className="rounded-xl border border-ember-600/40 bg-white p-3">
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative" style={{ width: DISPLAY, height: DISPLAY }}>
@@ -172,13 +179,14 @@ export function ArchitectureComparisonPage() {
               width={INTERNAL}
               height={INTERNAL}
               className="absolute inset-0 rounded-xl border-2 border-ember-600/40 bg-ink cursor-crosshair"
-              style={{ width: DISPLAY, height: DISPLAY }}
+              style={{ width: DISPLAY, height: DISPLAY, touchAction: "none" }}
               role="img"
               aria-label="Digit drawing canvas for architecture comparison"
-              onMouseDown={startDraw}
-              onMouseMove={onDraw}
-              onMouseUp={stopDraw}
-              onMouseLeave={stopDraw}
+              onPointerDown={startDraw}
+              onPointerMove={onDraw}
+              onPointerUp={stopDraw}
+              onPointerCancel={stopDraw}
+              onPointerLeave={stopDraw}
             />
             {showGrid && (
               <div
@@ -192,10 +200,10 @@ export function ArchitectureComparisonPage() {
             )}
           </div>
           <div className="flex flex-col gap-2 text-xs">
-            <button onClick={() => void syncPixelsAndPredict()} className="h-9 px-3 rounded border border-ember-600/40 bg-ember-600/15 text-ember-700">
+            <button type="button" onClick={() => void syncPixelsAndPredict()} className="h-9 px-3 rounded border border-ember-600/40 bg-ember-600/15 text-ember-700">
               Predict All
             </button>
-            <button onClick={clearCanvas} className="h-9 px-3 rounded border border-arch-rnn/40 bg-arch-rnn/12 text-arch-rnn">
+            <button type="button" onClick={clearCanvas} className="h-9 px-3 rounded border border-arch-rnn/40 bg-arch-rnn/12 text-arch-rnn">
               Clear
             </button>
             <p className="text-ink-mute max-w-[260px]">Auto-runs all models 300ms after drawing stops. Use this view to compare confidence and disagreements.</p>

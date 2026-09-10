@@ -4,3 +4,5 @@ websockets>=12.0
 tensorflow>=2.17.0
 numpy>=1.26.0
 pydantic>=2.8.0
+Pillow>=10.0.0
+python-multipart>=0.0.12

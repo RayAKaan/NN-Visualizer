@@ -1,4 +1,5 @@
-﻿import React, { useMemo } from "react";
+import React, { useMemo } from "react";
+import { Trash2 } from "lucide-react";
 import type { LayerConfig } from "../../types/simulator";
 import { NeuralInput } from "@/design-system/components/NeuralInput";
 import { NeuralSelect } from "@/design-system/components/NeuralSelect";
@@ -34,20 +35,22 @@ export function LayerCard({ layer, index, isRemovable, onRemove, onChange }: Pro
   return (
     <div
       className={`layer-card ${isInput ? "layer-card-input" : isOutput ? "layer-card-output" : "layer-card-hidden"} ${isSelected ? "selected" : ""}`}
-      onClick={() => setSelectedLayer(index)}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") setSelectedLayer(index);
-      }}
     >
       <div className="layer-card-header">
-        <div className="layer-card-title">
-          {typeLabel} {isInput || isOutput ? "" : `(Hidden ${index})`}
-        </div>
+        <button
+          type="button"
+          className="layer-card-select"
+          onClick={() => setSelectedLayer(index)}
+          aria-pressed={isSelected}
+          aria-label={`Select ${typeLabel} layer ${index + 1}`}
+        >
+          <span className="layer-card-title">
+            {typeLabel} {isInput || isOutput ? "" : `(Hidden ${index})`}
+          </span>
+        </button>
         {isRemovable && (
-          <button onClick={onRemove} className="layer-card-remove">
-            ?
+          <button type="button" onClick={onRemove} className="layer-card-remove" aria-label={`Remove ${typeLabel} layer ${index + 1}`}>
+            <Trash2 size={14} aria-hidden="true" />
           </button>
         )}
       </div>

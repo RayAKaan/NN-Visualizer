@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { cn } from '@/utils/cn';
 
 export interface NeuralToggleProps {
@@ -6,27 +6,24 @@ export interface NeuralToggleProps {
   onChange: (checked: boolean) => void;
   label?: string;
   className?: string;
+  disabled?: boolean;
 }
 
-export function NeuralToggle({ checked, onChange, label, className }: NeuralToggleProps) {
+export function NeuralToggle({ checked, onChange, label, className, disabled = false }: NeuralToggleProps) {
   return (
-    <label className={cn('neural-toggle', className)}>
-      <span
+    <div className={cn('neural-toggle', className)}>
+      <button
+        type="button"
         className={cn('neural-toggle-track', checked && 'neural-toggle-track-on')}
         onClick={() => onChange(!checked)}
         role="switch"
         aria-checked={checked}
-        tabIndex={0}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            onChange(!checked);
-          }
-        }}
+        aria-label={label ?? 'Toggle setting'}
+        disabled={disabled}
       >
-        <span className={cn('neural-toggle-thumb', checked && 'neural-toggle-thumb-on')} />
-      </span>
+        <span className={cn('neural-toggle-thumb', checked && 'neural-toggle-thumb-on')} aria-hidden="true" />
+      </button>
       {label ? <span className="neural-toggle-label">{label}</span> : null}
-    </label>
+    </div>
   );
 }

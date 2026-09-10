@@ -1,4 +1,35 @@
-﻿export type ModelType = "ann" | "cnn" | "rnn";
+export type ModelType = "ann" | "cnn" | "rnn";
+
+export type ModelFamily = "ANN" | "CNN" | "RNN";
+
+export type RegistryStatus =
+  | "available"
+  | "loading"
+  | "loaded"
+  | "unavailable"
+  | "error";
+
+export interface CatalogModel {
+  id: string;
+  name: string;
+  family: ModelFamily;
+  framework?: string | null;
+  source?: string | null;
+  weights?: string | null;
+  dataset?: string | null;
+  input_type?: "mnist_pixels" | "image" | "text" | null;
+  input_shape?: number[] | null;
+  num_classes?: number | null;
+  preprocessing?: string | null;
+  architecture?: string | null;
+  parameter_count?: number | null;
+  description?: string | null;
+  license?: string | null;
+  pretrained?: boolean;
+  status: RegistryStatus;
+  unavailable_reason?: string | null;
+  error?: string | null;
+}
 
 export interface LayerInfo {
   name: string;
@@ -54,7 +85,7 @@ export interface TrainingBatchMetrics {
 }
 
 export interface TrainingStatus {
-  status: "idle" | "training" | "paused" | "stopped" | "completed";
+  status: "idle" | "training" | "paused" | "stopping" | "stopped" | "completed";
   current_epoch: number;
   total_epochs: number;
 }

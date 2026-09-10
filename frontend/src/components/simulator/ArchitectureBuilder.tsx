@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import { useArchitectureStore } from "../../store/architectureStore";
 import { LayerCard } from "./LayerCard";
 import { PresetSelector } from "./PresetSelector";
@@ -45,6 +45,7 @@ export function ArchitectureBuilder() {
         <div className="arch-palette">
           {palette.map((item) => (
             <button
+              type="button"
               key={item.type}
               onClick={() => addLayerOfType(item.type)}
               className="arch-add"

@@ -1,4 +1,4 @@
-﻿import { useMemo } from "react";
+import { useMemo } from "react";
 import { useDataFlow } from "../../../hooks/useDataFlow";
 import { useLabStore } from "../../../store/labStore";
 import { FlowDimensionLabel } from "./FlowDimensionLabel";
@@ -20,12 +20,12 @@ export function DataFlowRibbon() {
   if (visible.length === 0) return null;
 
   return (
-    <aside
-      className="fixed bottom-[84px] left-2 top-[72px] z-10 hidden w-[72px] overflow-y-auto rounded-xl border border-ink/10 bg-white/88 p-2 backdrop-blur-lg lg:block"
-    >
-      <div className="mb-2 text-center text-[12px] font-semibold uppercase tracking-wider text-ink-faint">
-        Flow
+    <aside className="lab-flow-ribbon" aria-label="Data flow snapshots">
+      <div className="lab-flow-ribbon-heading">
+        <span>Flow</span>
+        <small>Completed activations</small>
       </div>
+      <div className="lab-flow-ribbon-list">
       {visible.map((snapshot, i) => {
         const prev = i > 0 ? visible[i - 1] : null;
         const isActive = stages[currentStageIndex]?.id === snapshot.stageId;
@@ -44,6 +44,7 @@ export function DataFlowRibbon() {
           </div>
         );
       })}
+      </div>
     </aside>
   );
 }

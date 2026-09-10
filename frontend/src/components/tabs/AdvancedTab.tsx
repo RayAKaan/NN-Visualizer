@@ -9,77 +9,76 @@ import { CompressionView } from "../simulator/CompressionView";
 import { EmbeddingsView } from "../simulator/EmbeddingsView";
 import { GenerativeView } from "../simulator/GenerativeView";
 
+interface ToolDisclosureProps {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  children: React.ReactNode;
+  open?: boolean;
+}
+
+function ToolDisclosure({ icon, title, description, children, open = false }: ToolDisclosureProps) {
+  return (
+    <details className="sim-advanced-disclosure" open={open}>
+      <summary>
+        <span className="sim-advanced-summary-icon" aria-hidden="true">{icon}</span>
+        <span className="sim-advanced-summary-copy"><strong>{title}</strong><small>{description}</small></span>
+        <span className="sim-advanced-summary-state" aria-hidden="true">Open</span>
+      </summary>
+      <div className="advanced-content">{children}</div>
+    </details>
+  );
+}
+
 export function AdvancedTab() {
   const userMode = useSessionStore((s) => s.userMode);
-  
-  // Only show in Research mode, collapsed hint in Standard mode
-  const isVisible = userMode === 'research';
-  const isCollapsed = userMode === 'standard';
-  
+  const isVisible = userMode === "research";
+  const isCollapsed = userMode === "standard";
+
   return (
     <div className="tab-content advanced-tab">
+      <section className="simulator-tab-intro">
+        <span className="simulator-tab-kicker">Advanced</span>
+        <h2>Ask harder questions</h2>
+        <p>These tools extend the run you built. Open one only when you need interpretability, robustness, compression, embeddings, or generation.</p>
+      </section>
       {isCollapsed ? (
         <NeuralPanel className="advanced-collapsed" variant="base">
           <div className="collapsed-message">
-            <NeuralBadge tone="info">Research Mode Only</NeuralBadge>
-            <p>Switch to Research mode to access advanced tools:</p>
+            <NeuralBadge tone="info">Research mode</NeuralBadge>
+            <p>Switch to Research mode to open the advanced tool disclosures.</p>
             <ul>
-              <li>Interpretability (Grad-CAM, Saliency)</li>
-              <li>Adversarial Testing</li>
-              <li>Model Compression</li>
-              <li>Embedding Visualization</li>
-              <li>Generative Models</li>
+              <li>Interpretability (Grad-CAM, saliency)</li>
+              <li>Adversarial testing</li>
+              <li>Model compression</li>
+              <li>Embedding visualization</li>
+              <li>Generative models</li>
             </ul>
-            <p className="hint">Set mode to "Research" in the header to unlock.</p>
           </div>
         </NeuralPanel>
       ) : isVisible ? (
         <div className="advanced-main">
-          {/* Interpretability */}
-          <NeuralPanel className="advanced-section" variant="base">
-            <h3 className="section-title"><Eye size={14} />Interpretability</h3>
-            <div className="advanced-content">
-              <InterpretView />
-            </div>
-          </NeuralPanel>
-
-          {/* Adversarial */}
-          <NeuralPanel className="advanced-section" variant="base">
-            <h3 className="section-title"><Crosshair size={14} />Adversarial Testing</h3>
-            <div className="advanced-content">
-              <AdversarialView />
-            </div>
-          </NeuralPanel>
-
-          {/* Compression */}
-          <NeuralPanel className="advanced-section" variant="base">
-            <h3 className="section-title"><Package size={14} />Model Compression</h3>
-            <div className="advanced-content">
-              <CompressionView />
-            </div>
-          </NeuralPanel>
-
-          {/* Embeddings */}
-          <NeuralPanel className="advanced-section" variant="base">
-            <h3 className="section-title"><ScatterChart size={14} />Embedding Visualization</h3>
-            <div className="advanced-content">
-              <EmbeddingsView />
-            </div>
-          </NeuralPanel>
-
-          {/* Generative */}
-          <NeuralPanel className="advanced-section" variant="base">
-            <h3 className="section-title"><Sparkles size={14} />Generative Models</h3>
-            <div className="advanced-content">
-              <GenerativeView />
-            </div>
-          </NeuralPanel>
+          <ToolDisclosure icon={<Eye size={15} />} title="Interpretability" description="Grad-CAM, saliency, and attribution views" open>
+            <InterpretView />
+          </ToolDisclosure>
+          <ToolDisclosure icon={<Crosshair size={15} />} title="Adversarial testing" description="Probe robustness with controlled perturbations">
+            <AdversarialView />
+          </ToolDisclosure>
+          <ToolDisclosure icon={<Package size={15} />} title="Model compression" description="Pruning, quantization, and compression experiments">
+            <CompressionView />
+          </ToolDisclosure>
+          <ToolDisclosure icon={<ScatterChart size={15} />} title="Embedding visualization" description="Inspect learned representation geometry">
+            <EmbeddingsView />
+          </ToolDisclosure>
+          <ToolDisclosure icon={<Sparkles size={15} />} title="Generative models" description="Explore generative sampling capabilities">
+            <GenerativeView />
+          </ToolDisclosure>
         </div>
       ) : (
         <NeuralPanel className="advanced-hidden" variant="base">
           <div className="hidden-message">
-            <NeuralBadge tone="neutral">Not Available</NeuralBadge>
-            <p>Advanced tools are only available in Research mode.</p>
+            <NeuralBadge tone="neutral">Research mode required</NeuralBadge>
+            <p>Advanced tools remain available when you switch the Simulator experience to Research.</p>
           </div>
         </NeuralPanel>
       )}

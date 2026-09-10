@@ -1,4 +1,4 @@
-﻿import { useEffect } from "react";
+import { useEffect } from "react";
 import { InputStage } from "../components/lab/InputStage";
 import { LabHeader } from "../components/lab/LabHeader";
 import { PassDirectionIndicator } from "../components/lab/PassDirectionIndicator";
@@ -23,6 +23,62 @@ import { useFlowStore } from "../store/flowStore";
 import { useLabStore } from "../store/labStore";
 import { useNeuronStore } from "../store/neuronStore";
 import { useProfilerStore } from "../store/profilerStore";
+import type { Architecture, Dataset } from "../types/pipeline";
+import { NeuralButton } from "@/design-system/components/NeuralButton";
+import { WORKSPACE_EVENTS } from "../utils/workspaceEvents";
+
+interface LabToolsBarProps {
+  inputPixels: Float32Array;
+  architecture: Architecture;
+  dataset: Dataset;
+  currentStageId: string | null;
+  onStartComparison: () => void;
+  onOpenCounterfactual: () => void;
+}
+
+function LabToolsBar({ inputPixels, architecture, dataset, currentStageId, onStartComparison, onOpenCounterfactual }: LabToolsBarProps) {
+  const flowVisible = useFlowStore((s) => s.isRibbonVisible);
+  const toggleFlow = useFlowStore((s) => s.toggleRibbon);
+  const profilerVisible = useProfilerStore((s) => s.isProfilerVisible);
+  const toggleProfiler = useProfilerStore((s) => s.toggleProfiler);
+  const computeSaliency = useLabStore((s) => s.computeSaliency);
+  const openNeuron = useNeuronStore((s) => s.openNeuron);
+  const hasInput = inputPixels.some((value) => value > 0.05);
+
+  return (
+    <section className="lab-tools-bar" aria-labelledby="lab-tools-heading">
+      <div className="lab-tools-intro">
+        <span className="lab-section-kicker" id="lab-tools-heading">Explore</span>
+        <p>Keep the core pass clear. Open a diagnostic only when it answers a question.</p>
+      </div>
+      <div className="lab-tools-actions">
+        <NeuralButton size="sm" variant={flowVisible ? "primary" : "secondary"} onClick={toggleFlow}>
+          {flowVisible ? "Hide flow" : "Show flow"}
+        </NeuralButton>
+        <NeuralButton size="sm" variant={profilerVisible ? "primary" : "secondary"} onClick={toggleProfiler}>
+          {profilerVisible ? "Hide profiler" : "Cost profiler"}
+        </NeuralButton>
+        <NeuralButton size="sm" variant="secondary" disabled={!hasInput} onClick={() => void computeSaliency()}>
+          Saliency
+        </NeuralButton>
+        <NeuralButton size="sm" variant="secondary" disabled={!hasInput} onClick={onOpenCounterfactual}>
+          Counterfactual
+        </NeuralButton>
+        <NeuralButton size="sm" variant="secondary" disabled={!hasInput} onClick={onStartComparison}>
+          Compare stages
+        </NeuralButton>
+        <NeuralButton
+          size="sm"
+          variant="secondary"
+          disabled={!currentStageId || !hasInput}
+          onClick={() => currentStageId && void openNeuron(currentStageId, 0, architecture, dataset, inputPixels)}
+        >
+          Inspect neuron
+        </NeuralButton>
+      </div>
+    </section>
+  );
+}
 
 export default function LabPage() {
   const currentStageIndex = useLabStore((s) => s.currentStageIndex);
@@ -56,6 +112,8 @@ export default function LabPage() {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.repeat) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("input, textarea, select, [contenteditable=\"true\"]")) return;
       const state = useLabStore.getState();
       if (event.code === "Space") {
         event.preventDefault();
@@ -87,10 +145,10 @@ export default function LabPage() {
       if (event.key === "+") state.setSpeed(Math.min(4, state.speed * 2));
       if (event.key === "-") state.setSpeed(Math.max(0.5, state.speed / 2));
       if (event.key === "Escape") {
-        resetPipeline();
-        stopComparison();
-        closeCounterfactual();
-        useNeuronStore.getState().closeNeuron();
+        if (useNeuronStore.getState().isOpen) useNeuronStore.getState().closeNeuron();
+        else if (useCounterfactualStore.getState().isOpen) closeCounterfactual();
+        else if (useComparisonStore.getState().isComparisonActive) stopComparison();
+        else if (useProfilerStore.getState().isProfilerVisible) useProfilerStore.getState().setProfilerVisible(false);
       }
     };
 
@@ -98,16 +156,36 @@ export default function LabPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [resetPipeline, setArchitecture, setDataset]);
 
+  useEffect(() => {
+    const onResetCommand = () => resetPipeline();
+    window.addEventListener(WORKSPACE_EVENTS.resetLab, onResetCommand);
+    return () => window.removeEventListener(WORKSPACE_EVENTS.resetLab, onResetCommand);
+  }, [resetPipeline]);
+
   return (
     <div className="flex h-full flex-col">
       <LabHeader />
-      {flowVisible ? <DataFlowRibbon /> : null}
       <div ref={ref} className="flex-1 overflow-y-auto pb-36">
         <div className="page-shell [--shell-max:72rem] py-4">
-          <div className="mb-3 flex items-center justify-between">
-            <PassDirectionIndicator />
-            <TrainedVsUntrainedToggle />
+          {flowVisible ? <DataFlowRibbon /> : null}
+          <div className="lab-orientation-row">
+            <div>
+              <span className="lab-section-kicker">Core experiment</span>
+              <p className="lab-next-step">Input → current stage → next computation</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <PassDirectionIndicator />
+              <TrainedVsUntrainedToggle />
+            </div>
           </div>
+          <LabToolsBar
+            inputPixels={inputPixels}
+            architecture={architecture}
+            dataset={dataset}
+            currentStageId={stages[currentStageIndex]?.id ?? null}
+            onStartComparison={() => void startComparison(inputPixels, dataset)}
+            onOpenCounterfactual={openCounterfactual}
+          />
           <InputStage />
           <StagePipeline />
           <TruthSelector />

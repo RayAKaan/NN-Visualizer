@@ -1,4 +1,4 @@
-﻿import React, { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 
 interface MapItem {
   mapId: number;
@@ -69,6 +69,7 @@ export function CNNFeatureGallery({ activations }: Props) {
                 const url = makeHeatmap(map.data);
                 return (
                   <button
+                    type="button"
                     key={`${layer.id}-${map.mapId}`}
                     className="relative w-14 h-14 rounded-sm overflow-hidden border border-barley-linestrong bg-ink transition-transform duration-150 hover:scale-110"
                     style={{
@@ -77,6 +78,7 @@ export function CNNFeatureGallery({ activations }: Props) {
                       borderColor: selectedThis ? "rgba(194,65,12,0.7)" : undefined,
                     }}
                     onClick={() => setSelected({ layer: layer.id, mapId: map.mapId })}
+                    aria-label={`Inspect ${layer.name} feature map ${map.mapId}`}
                     title={`Map ${map.mapId}`}
                   >
                     <img src={url} alt={`Feature map ${map.mapId} from ${layer.name}`} className="w-full h-full object-cover" />

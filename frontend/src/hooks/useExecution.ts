@@ -1,12 +1,10 @@
-﻿import { useCallback } from 'react';
+import { useCallback } from 'react';
 import { useSessionStore } from '../store/sessionStore';
 import { useComputationStore } from '../store/computationStore';
 import { useTrainingSimStore } from '../store/trainingSimStore';
 import { useDatasetStore } from '../store/datasetStore';
 import { useSimulatorStore } from '../store/simulatorStore';
-import axios from 'axios';
-
-const API_BASE = 'http://127.0.0.1:8000/api';
+import { apiClient } from '../api/client';
 
 export function useExecution() {
   const setExecutionStatus = useSessionStore((s) => s.setExecutionStatus);
@@ -30,7 +28,7 @@ export function useExecution() {
 
   const selectDevice = useCallback(async (preference: string) => {
     try {
-      const response = await axios.post(`${API_BASE}/device/select`, null, {
+      const response = await apiClient.post("/api/device/select", null, {
         params: { preference }
       });
       return response.data;
@@ -50,7 +48,7 @@ export function useExecution() {
       setExecutionStatus('running');
       setCurrentOperation('building');
       
-      const response = await axios.post(`${API_BASE}/simulator/architecture/build`, {
+      const response = await apiClient.post("/api/simulator/architecture/build", {
         layers: architecture
       });
       
@@ -87,7 +85,7 @@ export function useExecution() {
         setExecutionStatus('running');
         setCurrentOperation('forward');
         
-        const response = await axios.post(`${API_BASE}/simulator/forward/full`, {
+        const response = await apiClient.post("/api/simulator/forward/full", {
           graph_id: graphId,
           input: input
         });
@@ -118,7 +116,7 @@ export function useExecution() {
       setExecutionStatus('running');
       setCurrentOperation('backward');
       
-      const response = await axios.post(`${API_BASE}/simulator/backward/full`, {
+      const response = await apiClient.post("/api/simulator/backward/full", {
         graph_id: graphId,
         input: currentInput,
         target: currentTarget,
@@ -152,7 +150,7 @@ export function useExecution() {
       setCurrentOperation('training');
       setIsTraining(true);
       
-      const response = await axios.post(`${API_BASE}/simulator/train/start`, {
+      const response = await apiClient.post("/api/simulator/train/start", {
         graph_id: graphId,
         dataset_id: datasetId,
         config: {

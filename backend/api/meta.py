@@ -4,6 +4,11 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from services.inference import inference_engine
+from services.prediction_service import (
+    ModelNotFoundError,
+    ModelUnavailableError,
+    prediction_service,
+)
 from training.manager import training_manager
 
 router = APIRouter()
@@ -39,6 +44,52 @@ def models_registry():
         "available": inference_engine.get_available_models(),
         "active": inference_engine.active_model_type,
     }
+
+
+# ---------------------------------------------------------------------------
+# Pretrained Prediction-Mode model catalog (central Model Registry).
+# ---------------------------------------------------------------------------
+@router.get("/models/catalog")
+def models_catalog():
+    from model_registry.registry import registry
+
+    rows = registry.catalog()
+    return {
+        "models": rows,
+        "families": registry.families(),
+        "loaded": registry.loaded_ids(),
+    }
+
+
+@router.get("/models/catalog/{model_id}")
+def model_catalog_entry(model_id: str):
+    from model_registry.registry import registry
+
+    if not registry.contains(model_id):
+        # allow listing the intentionally-unavailable entries
+        for row in registry.catalog():
+            if row.get("id") == model_id and row.get("status") == "unavailable":
+                return row
+        raise HTTPException(status_code=404, detail=f"Unknown model_id: {model_id}")
+    return registry.status(model_id)
+
+
+@router.post("/models/{model_id}/load")
+def model_load(model_id: str):
+    try:
+        return prediction_service.load(model_id)
+    except ModelNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ModelUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@router.post("/models/{model_id}/unload")
+def model_unload(model_id: str):
+    try:
+        return prediction_service.unload(model_id)
+    except ModelNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.post("/model/switch")

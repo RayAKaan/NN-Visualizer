@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import { NeuralTabs } from "@/design-system/components/NeuralTabs";
 import { PageHeader } from "@/design-system/components/PageHeader";
 import { useSessionStore, TabId } from "../../store/sessionStore";
@@ -8,51 +8,46 @@ import { Lightbulb } from "lucide-react";
 interface Tab {
   id: TabId;
   label: string;
-  icon?: string;
 }
 
 const tabs: Tab[] = [
-  { id: "build", label: "BUILD" },
-  { id: "run", label: "RUN" },
-  { id: "analyze", label: "ANALYZE" },
-  { id: "advanced", label: "ADVANCED" },
+  { id: "build", label: "Build" },
+  { id: "run", label: "Run" },
+  { id: "analyze", label: "Analyze" },
+  { id: "advanced", label: "Advanced" },
 ];
 
 interface Props {
   children: React.ReactNode;
+  demoMode?: boolean;
 }
 
-export function UnifiedLayout({ children }: Props) {
+export function UnifiedLayout({ children, demoMode = true }: Props) {
   const activeTab = useSessionStore((s) => s.activeTab);
   const setActiveTab = useSessionStore((s) => s.setActiveTab);
   const userMode = useSessionStore((s) => s.userMode);
   const setUserMode = useSessionStore((s) => s.setUserMode);
-  
   const modelBuilt = useSessionStore((s) => s.modelBuilt);
   const datasetLoaded = useSessionStore((s) => s.datasetLoaded);
   const deviceInfo = useSessionStore((s) => s.deviceInfo);
   const executionStatus = useSessionStore((s) => s.executionStatus);
   const getNextAction = useSessionStore((s) => s.getNextAction);
 
-  const handleTabChange = (tabId: string) => {
-    setActiveTab(tabId as TabId);
-  };
-
   return (
     <div className="unified-shell">
-      {/* Header */}
       <header className="unified-header">
         <PageHeader
-          title="Neurofluxion Simulator"
-          subtitle="Build a network, run it forward, inspect every number."
+          eyebrow="Build · Run · Analyze · Advanced"
+          title="Simulator"
+          subtitle="Build a network, run it forward, and inspect every number."
           actions={
-            <label className="flex items-center gap-2 text-xs text-ink-faint">
-              Mode
+            <label className="simulator-mode-control">
+              <span>Experience</span>
               <select
                 value={userMode}
-                onChange={(e) => setUserMode(e.target.value as any)}
+                onChange={(event) => setUserMode(event.target.value as "beginner" | "standard" | "research")}
                 className="mode-select"
-                aria-label="Experience mode"
+                aria-label="Simulator experience mode"
               >
                 <option value="beginner">Beginner</option>
                 <option value="standard">Standard</option>
@@ -61,52 +56,44 @@ export function UnifiedLayout({ children }: Props) {
             </label>
           }
         >
-          <nav aria-label="Simulator sections" className="w-full flex justify-center">
+          <nav aria-label="Simulator workflow" className="simulator-workflow-nav">
             <NeuralTabs
-              tabs={tabs.map(t => ({ id: t.id, label: t.label }))}
+              tabs={tabs.map((tab) => ({ id: tab.id, label: tab.label }))}
               value={activeTab}
-              onChange={handleTabChange}
+              onChange={(value) => setActiveTab(value as TabId)}
               className="unified-tabs"
+              ariaLabel="Simulator workflow"
             />
           </nav>
+          {demoMode ? (
+            <div className="simulator-demo-note" role="note">
+              <span className="simulator-demo-badge">Demo</span>
+              <span>Neurofluxion loaded a small 16 → 8 → 2 network and ran one random forward pass. Edit it in Build or run it again.</span>
+            </div>
+          ) : null}
         </PageHeader>
       </header>
 
-      {/* Status Bar */}
-      <div className="unified-status-bar">
-        <div className="status-indicators">
-          <div className={`status-item ${modelBuilt ? 'ready' : 'not-ready'}`}>
-            <span className="status-dot" />
-            <span className="status-label">Model</span>
-          </div>
-          <div className={`status-item ${datasetLoaded ? 'ready' : 'not-ready'}`}>
-            <span className="status-dot" />
-            <span className="status-label">Dataset</span>
-          </div>
-          <div className="status-item">
-            <span className="status-label">Device:</span>
-            <span className="status-value">
-              {deviceInfo.type === 'gpu' ? 'GPU' : 'CPU'}
-            </span>
-          </div>
-          <div className="status-item">
-            <span className="status-label">Status:</span>
-            <span className={`status-value execution-${executionStatus}`}>
-              {executionStatus}
-            </span>
-          </div>
+      <section className="unified-status-bar" aria-label="Simulator status">
+        <div className="simulator-status-primary">
+          <span className={`simulator-status-dot is-${executionStatus}`} aria-hidden="true" />
+          <strong>{executionStatus === "idle" ? "Ready" : executionStatus === "complete" ? "Complete" : executionStatus === "running" ? "Running" : "Needs attention"}</strong>
+          <span>{modelBuilt ? "Network built" : "No network built"}</span>
         </div>
-        
-        {executionStatus === 'idle' && (
-          <div className="next-action-hint">
-            <Lightbulb size={13} className="inline -mt-0.5 mr-1" /> {getNextAction()}
-          </div>
-        )}
-      </div>
+        <div className="simulator-status-details">
+          <span>{deviceInfo.type === "gpu" ? "GPU" : "CPU"}</span>
+          <span>{datasetLoaded ? "Dataset loaded" : "Dataset not loaded"}</span>
+          {executionStatus === "idle" ? <span className="simulator-next-action"><Lightbulb size={13} aria-hidden="true" /> {getNextAction().replace(/^▶️\s*/, "")}</span> : null}
+        </div>
+      </section>
 
-      {/* Main Content Area */}
       <div className="unified-main">
-        <div className="unified-content">
+        <div
+          id={`tabpanel-${activeTab}`}
+          role="tabpanel"
+          aria-labelledby={`tab-${activeTab}`}
+          className="unified-content"
+        >
           <TabErrorBoundary label={activeTab}>
             {children}
           </TabErrorBoundary>

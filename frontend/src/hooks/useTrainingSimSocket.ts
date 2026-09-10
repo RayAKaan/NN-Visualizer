@@ -1,10 +1,11 @@
-﻿import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { SIM_WS_URL } from "../api/client";
 import { useTrainingSimStore } from "../store/trainingSimStore";
 
 export function useTrainingSimSocket() {
   const ws = useRef<WebSocket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [status, setSocketStatus] = useState<"idle" | "training" | "paused" | "complete" | "stopped" | "error">("idle");
   const setStatus = useTrainingSimStore((s) => s.setStatus);
   const pushMetrics = useTrainingSimStore((s) => s.pushMetrics);
   const pushWarning = useTrainingSimStore((s) => s.pushWarning);
@@ -17,6 +18,8 @@ export function useTrainingSimSocket() {
     ws.current.onmessage = (event) => {
       const data = JSON.parse(event.data);
       if (data.type === "status") {
+        const nextStatus = data.status === "training" || data.status === "paused" || data.status === "stopped" ? data.status : "idle";
+        setSocketStatus(nextStatus);
         setStatus({ isTraining: data.status === "training", isPaused: data.status === "paused" });
       }
       if (data.type === "batch") {
@@ -29,6 +32,11 @@ export function useTrainingSimSocket() {
         pushWarning(data);
       }
       if (data.type === "complete") {
+        setSocketStatus("complete");
+        setStatus({ isTraining: false, isPaused: false });
+      }
+      if (data.type === "error") {
+        setSocketStatus("error");
         setStatus({ isTraining: false, isPaused: false });
       }
     };
@@ -48,6 +56,6 @@ export function useTrainingSimSocket() {
     return () => ws.current?.close();
   }, [connect]);
 
-  return { isConnected, send };
+  return { isConnected, status, send };
 }
 

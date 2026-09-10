@@ -1,4 +1,4 @@
-﻿interface Props {
+interface Props {
   shape: number[];
   statistics: {
     sparsity: number;

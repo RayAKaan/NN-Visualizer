@@ -1,4 +1,4 @@
-﻿import { useLabStore } from "../../store/labStore";
+import { useLabStore } from "../../store/labStore";
 
 const SPEEDS = [0.5, 1, 2, 4];
 
@@ -34,7 +34,7 @@ export function PlaybackControls() {
   const atBackwardStart = currentBackwardStageIndex < 0;
 
   return (
-    <div className="fixed bottom-[132px] left-0 right-0 z-30 px-4 md:bottom-[76px]">
+    <div className="fixed bottom-[76px] left-0 right-0 z-30 px-3 md:bottom-4 md:px-4">
       <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 rounded-2xl border border-ink/8 bg-barley-page/75 px-3 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.6),0_1px_2px_rgba(28,25,23,0.04),0_4px_16px_rgba(28,25,23,0.07)] backdrop-blur-xl">
         <div className="text-xs text-ink-mute">
           {passDirection === "forward"
