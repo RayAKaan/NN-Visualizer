@@ -107,11 +107,31 @@ export function CostProfiler() {
   return (
     <section className="mt-4 rounded-2xl border border-barley-linestrong bg-white p-3">
       <h3 className="text-sm font-semibold text-ink">Computational Cost Profile</h3>
+      <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-ink-mute">
+        <span><span className="font-semibold text-ink-soft">Measured</span> · live per-stage time from the backend forward pass</span>
+        <span><span className="font-semibold text-ink-soft">Estimated</span> · shape-derived FLOPs/memory (theoretical, not instrumented)</span>
+      </div>
       <div className="mt-2 grid grid-cols-2 gap-2 text-xs md:grid-cols-4">
-        <div className="rounded-lg bg-barley-page p-2">FLOPs: {formatNumber(profile.totalFlops)}</div>
-        <div className="rounded-lg bg-barley-page p-2">Memory: {formatBytes(profile.totalMemoryBytes)}</div>
-        <div className="rounded-lg bg-barley-page p-2">Params: {formatNumber(profile.totalParams)}</div>
-        <div className="rounded-lg bg-barley-page p-2">Time: {profile.totalInferenceMs.toFixed(1)}ms</div>
+        <div className="rounded-lg bg-barley-page p-2">
+          <span className="block text-[10px] uppercase tracking-wide text-ink-faint">FLOPs · estimated</span>
+          {formatNumber(profile.totalFlops)}
+        </div>
+        <div className="rounded-lg bg-barley-page p-2">
+          <span className="block text-[10px] uppercase tracking-wide text-ink-faint">Memory · estimated</span>
+          {formatBytes(profile.totalMemoryBytes)}
+        </div>
+        <div className="rounded-lg bg-barley-page p-2">
+          <span className="block text-[10px] uppercase tracking-wide text-ink-faint">Params · known</span>
+          {formatNumber(profile.totalParams)}
+        </div>
+        <div className="rounded-lg bg-barley-page p-2">
+          <span className="block text-[10px] uppercase tracking-wide text-ink-faint">Time · measured</span>
+          {profile.totalInferenceMs.toFixed(1)}ms
+        </div>
+      </div>
+
+      <div className="mt-1 flex justify-end text-[10px] text-ink-faint">
+        timing is real latency; the rest are upper-bound shape estimates
       </div>
 
       <div className="mt-3 space-y-1">

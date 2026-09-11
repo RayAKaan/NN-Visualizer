@@ -10,7 +10,23 @@ from pydantic import BaseModel
 from model.ann_model import build_ann_model
 from model.cnn_model import build_cnn_model
 from model.rnn_model import build_rnn_model
+from services.execution_trace import (
+    build_all_networks_metadata,
+    build_execution_trace,
+    conv_cell_detail,
+    dense_neuron_detail,
+    lstm_gate_gradients,
+    lstm_gates_detail,
+    real_final_gates,
+)
 from services.inference import inference_engine
+from services.input_utils import (
+    arch_key,
+    binary_probs,
+    dataset_adjust,
+    label_for_dataset,
+    prepare_input,
+)
 
 router = APIRouter(prefix="/api/lab", tags=["lab"])
 
@@ -100,6 +116,30 @@ class ComparisonRequest(BaseModel):
     pixels: list[float]
 
 
+class TraceRequest(BaseModel):
+    architecture: str
+    dataset: str
+    pixels: list[float]
+    useUntrainedWeights: bool = False
+
+
+class TraceSelection(BaseModel):
+    neuronIndex: int = 0
+    filterIndex: int = 0
+    position: dict[str, int] | None = None
+    timestep: int | None = None
+
+
+class TraceDetailRequest(BaseModel):
+    architecture: str
+    dataset: str
+    pixels: list[float]
+    layerId: str
+    detail: str
+    selection: TraceSelection | None = None
+    trueLabel: int = 0
+
+
 @dataclass
 class ModelBundle:
     model: tf.keras.Model
@@ -144,13 +184,6 @@ _STAGE_TO_LAYER: dict[str, dict[str, str]] = {
 }
 
 
-def _arch_key(architecture: str) -> str:
-    key = architecture.strip().lower()
-    if key in ("ann", "cnn", "rnn"):
-        return key
-    raise HTTPException(status_code=400, detail=f"Unsupported architecture: {architecture}")
-
-
 def _build_untrained_bundle(arch: str) -> ModelBundle:
     if arch == "ann":
         model = build_ann_model()
@@ -175,25 +208,6 @@ def _bundle(arch: str, use_untrained: bool = False) -> ModelBundle:
     if arch not in inference_engine.models or arch not in inference_engine.activation_models:
         raise HTTPException(status_code=404, detail=f"Model '{arch}' is not loaded")
     return ModelBundle(model=inference_engine.models[arch], activation_model=inference_engine.activation_models[arch])
-
-
-def _prepare_input(pixels: list[float], arch: str, dataset: str) -> np.ndarray:
-    arr = np.asarray(pixels, dtype=np.float32)
-    if dataset == "catdog" and arr.size >= 3 * 64 * 64:
-        rgb = arr[: 3 * 64 * 64].reshape(3, 64, 64)
-        gray = np.mean(rgb, axis=0)
-        arr = tf.image.resize(gray[..., np.newaxis], [28, 28]).numpy().reshape(-1)
-    if arr.size < 28 * 28:
-        padded = np.zeros(28 * 28, dtype=np.float32)
-        padded[: arr.size] = arr
-        arr = padded
-    elif arr.size > 28 * 28:
-        arr = arr[: 28 * 28]
-    if arch == "ann":
-        return arr.reshape(1, 784)
-    if arch == "cnn":
-        return arr.reshape(1, 28, 28, 1)
-    return arr.reshape(1, 28, 28)
 
 
 def _collect_outputs(model: tf.keras.Model, activation_model: tf.keras.Model, x: np.ndarray) -> tuple[dict[str, np.ndarray], dict[str, tf.keras.layers.Layer]]:
@@ -258,46 +272,8 @@ def _pick_stage(stage_id: str, arch: str, x: np.ndarray, out_map: dict[str, np.n
     return out.reshape(-1), out.reshape(-1), "output"
 
 
-def _dataset_adjust(output_data: np.ndarray, dataset: str) -> np.ndarray:
-    if dataset != "catdog":
-        return output_data
-    if output_data.size < 2:
-        return np.pad(output_data, (0, 2 - output_data.size))
-    two = output_data[:2].astype(np.float32)
-    denom = float(np.sum(two))
-    return two / denom if denom > 0 else two
-
-
-def _fake_gates(vector: np.ndarray, stage_index: int) -> dict[str, list[float]]:
-    base = np.abs(vector[:128]).astype(np.float32)
-    if base.size == 0:
-        base = np.zeros(128, dtype=np.float32)
-    if np.max(base) > 0:
-        base = base / np.max(base)
-    phase = (stage_index % 3) / 3.0
-    return {
-        "forget": np.clip(0.2 + 0.6 * base * (1.0 - phase), 0, 1).tolist(),
-        "input": np.clip(0.2 + 0.6 * base * (0.7 + phase), 0, 1).tolist(),
-        "output": np.clip(0.2 + 0.7 * base, 0, 1).tolist(),
-        "cell_state": ((base * 2.0) - 1.0).tolist(),
-    }
-
-
-def _binary_probs(probs: tf.Tensor, dataset: str) -> tf.Tensor:
-    if dataset != "catdog":
-        return probs
-    two = probs[:, :2]
-    return two / (tf.reduce_sum(two, axis=1, keepdims=True) + 1e-7)
-
-
 def _layer_name(stage_id: str, arch: str) -> str | None:
     return _STAGE_TO_LAYER.get(arch, {}).get(stage_id)
-
-
-def _label_for_dataset(dataset: str, label: int) -> int | str:
-    if dataset == "catdog":
-        return "Cat" if label == 0 else "Dog"
-    return int(label)
 
 
 def _next_trainable_layer(model: tf.keras.Model, layer_name: str) -> tf.keras.layers.Layer | None:
@@ -316,13 +292,13 @@ def _next_trainable_layer(model: tf.keras.Model, layer_name: str) -> tf.keras.la
 
 @router.post("/activate", response_model=ActivationResponse)
 def get_stage_activation(req: ActivationRequest):
-    arch = _arch_key(req.architecture)
+    arch = arch_key(req.architecture)
     bundle = _bundle(arch, use_untrained=req.useUntrainedWeights)
     start = time.perf_counter()
-    x = _prepare_input(req.pixels, arch, req.dataset)
+    x = prepare_input(req.pixels, arch, req.dataset)
     out_map, layers = _collect_outputs(bundle.model, bundle.activation_model, x)
     in_data, out_data, layer_name = _pick_stage(req.stageId, arch, x, out_map)
-    out_data = _dataset_adjust(out_data, req.dataset)
+    out_data = dataset_adjust(out_data, req.dataset)
 
     weights = None
     bias = None
@@ -340,7 +316,11 @@ def get_stage_activation(req: ActivationRequest):
             kernel = np.asarray(w[0]).astype(np.float32)
             kernels = [kernel[..., i].reshape(-1).tolist() for i in range(kernel.shape[-1])]
 
-    gates = _fake_gates(out_data, req.stageIndex) if arch == "rnn" and req.stageId.startswith("lstm") else None
+    gates = (
+        real_final_gates(req.architecture, req.dataset, req.pixels)
+        if arch == "rnn" and req.stageId.startswith("lstm")
+        else None
+    )
 
     return ActivationResponse(
         input=np.asarray(in_data).reshape(-1).astype(np.float32).tolist(),
@@ -358,11 +338,11 @@ def get_stage_activation(req: ActivationRequest):
 
 @router.post("/loss")
 def compute_loss(req: LossRequest):
-    arch = _arch_key(req.architecture)
+    arch = arch_key(req.architecture)
     model = _bundle(arch, use_untrained=False).model
-    x = _prepare_input(req.pixels, arch, req.dataset)
+    x = prepare_input(req.pixels, arch, req.dataset)
     probs = tf.cast(model(x, training=False), tf.float32)
-    probs = _binary_probs(probs, req.dataset)
+    probs = binary_probs(probs, req.dataset)
     classes = int(probs.shape[1])
     label = int(np.clip(req.trueLabel, 0, max(classes - 1, 0)))
     one_hot = tf.one_hot([label], depth=classes, dtype=tf.float32)
@@ -385,7 +365,7 @@ def compute_loss(req: LossRequest):
 
 @router.post("/backward")
 def compute_backward(req: BackwardRequest):
-    arch = _arch_key(req.architecture)
+    arch = arch_key(req.architecture)
     model = _bundle(arch, use_untrained=False).model
     lname = _layer_name(req.stageId, arch)
     if lname is None:
@@ -393,12 +373,12 @@ def compute_backward(req: BackwardRequest):
     layer = model.get_layer(lname)
     probe = tf.keras.Model(model.input, [layer.input, layer.output, model.output])
 
-    x = tf.convert_to_tensor(_prepare_input(req.pixels, arch, req.dataset))
+    x = tf.convert_to_tensor(prepare_input(req.pixels, arch, req.dataset))
     start = time.perf_counter()
     with tf.GradientTape(persistent=True) as tape:
         tape.watch(x)
         layer_in, layer_out, probs_full = probe(x, training=False)
-        probs = _binary_probs(tf.cast(probs_full, tf.float32), req.dataset)
+        probs = binary_probs(tf.cast(probs_full, tf.float32), req.dataset)
         classes = int(probs.shape[1])
         label = int(np.clip(req.trueLabel, 0, max(classes - 1, 0)))
         one_hot = tf.one_hot([label], depth=classes, dtype=tf.float32)
@@ -458,7 +438,9 @@ def compute_backward(req: BackwardRequest):
             response["proposed_bias_delta"] = (-float(req.learningRate) * bg).tolist()
 
     if arch == "rnn" and req.stageId.startswith("lstm"):
-        response["gate_gradients"] = _fake_gates(in_np, req.stageIndex)
+        real_grads = lstm_gate_gradients(req.architecture, req.dataset, req.pixels, "lstm1", req.trueLabel)
+        response["gate_gradients"] = real_grads["gradients"]
+        response["gate_gradient_magnitudes"] = real_grads["magnitudes"]
 
     del tape
     return response
@@ -466,12 +448,12 @@ def compute_backward(req: BackwardRequest):
 
 @router.post("/saliency")
 def compute_saliency(req: SaliencyRequest):
-    arch = _arch_key(req.architecture)
+    arch = arch_key(req.architecture)
     model = _bundle(arch, use_untrained=False).model
-    x = tf.convert_to_tensor(_prepare_input(req.pixels, arch, req.dataset))
+    x = tf.convert_to_tensor(prepare_input(req.pixels, arch, req.dataset))
     with tf.GradientTape() as tape:
         tape.watch(x)
-        probs = _binary_probs(tf.cast(model(x, training=False), tf.float32), req.dataset)
+        probs = binary_probs(tf.cast(model(x, training=False), tf.float32), req.dataset)
         classes = int(probs.shape[1])
         label = int(np.clip(req.trueLabel, 0, max(classes - 1, 0)))
         one_hot = tf.one_hot([label], depth=classes, dtype=tf.float32)
@@ -517,7 +499,7 @@ def compute_saliency(req: SaliencyRequest):
 
 @router.post("/weights")
 def inspect_weights(req: WeightInspectionRequest):
-    arch = _arch_key(req.architecture)
+    arch = arch_key(req.architecture)
     lname = _layer_name(req.stageId, arch)
     if lname is None:
         raise HTTPException(status_code=400, detail=f"Stage '{req.stageId}' has no trainable layer")
@@ -575,9 +557,9 @@ def inspect_weights(req: WeightInspectionRequest):
 
 @router.post("/neuron-biography")
 def neuron_biography(req: NeuronBiographyRequest):
-    arch = _arch_key(req.architecture)
+    arch = arch_key(req.architecture)
     model = _bundle(arch, use_untrained=False).model
-    x = tf.convert_to_tensor(_prepare_input(req.pixels, arch, req.dataset))
+    x = tf.convert_to_tensor(prepare_input(req.pixels, arch, req.dataset))
 
     lname = _layer_name(req.stageId, arch)
     if lname is None:
@@ -616,7 +598,7 @@ def neuron_biography(req: NeuronBiographyRequest):
     probe = tf.keras.Model(model.input, [layer.output, model.output])
     with tf.GradientTape() as tape:
         layer_out, logits = probe(x, training=False)
-        probs = _binary_probs(tf.cast(logits, tf.float32), req.dataset)
+        probs = binary_probs(tf.cast(logits, tf.float32), req.dataset)
         pred = tf.argmax(probs[0])
         loss = -tf.math.log(tf.gather(probs[0], pred) + 1e-7)
     grads = tape.gradient(loss, layer.trainable_weights)
@@ -633,7 +615,7 @@ def neuron_biography(req: NeuronBiographyRequest):
     if len(ablated) > 1 and ablated[1].ndim >= 1:
         ablated[1][neuron_idx] = 0
     layer.set_weights(ablated)
-    ablated_probs = _binary_probs(tf.cast(model(x, training=False), tf.float32), req.dataset).numpy()[0]
+    ablated_probs = binary_probs(tf.cast(model(x, training=False), tf.float32), req.dataset).numpy()[0]
     layer.set_weights(old_weights)
     original_probs = probs.numpy()[0]
     ablation_impact = float(abs(np.max(original_probs) - np.max(ablated_probs)))
@@ -683,12 +665,12 @@ def neuron_biography(req: NeuronBiographyRequest):
 
 @router.post("/sensitivity-map")
 def sensitivity_map(req: SensitivityRequest):
-    arch = _arch_key(req.architecture)
+    arch = arch_key(req.architecture)
     model = _bundle(arch, use_untrained=False).model
-    x = tf.convert_to_tensor(_prepare_input(req.pixels, arch, req.dataset))
+    x = tf.convert_to_tensor(prepare_input(req.pixels, arch, req.dataset))
     with tf.GradientTape() as tape:
         tape.watch(x)
-        probs = _binary_probs(tf.cast(model(x, training=False), tf.float32), req.dataset)
+        probs = binary_probs(tf.cast(model(x, training=False), tf.float32), req.dataset)
         pred = tf.argmax(probs[0])
         score = tf.gather(probs[0], pred)
     grad = tape.gradient(score, x)
@@ -724,25 +706,25 @@ def sensitivity_map(req: SensitivityRequest):
 
 @router.post("/counterfactual")
 def counterfactual(req: CounterfactualRequest):
-    arch = _arch_key(req.architecture)
+    arch = arch_key(req.architecture)
     model = _bundle(arch, use_untrained=False).model
-    x0 = tf.convert_to_tensor(_prepare_input(req.originalPixels, arch, req.dataset))
-    x1 = tf.convert_to_tensor(_prepare_input(req.modifiedPixels, arch, req.dataset))
+    x0 = tf.convert_to_tensor(prepare_input(req.originalPixels, arch, req.dataset))
+    x1 = tf.convert_to_tensor(prepare_input(req.modifiedPixels, arch, req.dataset))
 
-    p0 = _binary_probs(tf.cast(model(x0, training=False), tf.float32), req.dataset).numpy()[0]
-    p1 = _binary_probs(tf.cast(model(x1, training=False), tf.float32), req.dataset).numpy()[0]
+    p0 = binary_probs(tf.cast(model(x0, training=False), tf.float32), req.dataset).numpy()[0]
+    p1 = binary_probs(tf.cast(model(x1, training=False), tf.float32), req.dataset).numpy()[0]
     y0 = int(np.argmax(p0))
     y1 = int(np.argmax(p1))
 
     delta = np.asarray(req.modifiedPixels, dtype=np.float32) - np.asarray(req.originalPixels, dtype=np.float32)
     return {
         "originalPrediction": {
-            "label": _label_for_dataset(req.dataset, y0),
+            "label": label_for_dataset(req.dataset, y0),
             "confidence": float(np.max(p0) * 100.0),
             "probs": p0.tolist(),
         },
         "modifiedPrediction": {
-            "label": _label_for_dataset(req.dataset, y1),
+            "label": label_for_dataset(req.dataset, y1),
             "confidence": float(np.max(p1) * 100.0),
             "probs": p1.tolist(),
         },
@@ -755,13 +737,13 @@ def counterfactual(req: CounterfactualRequest):
 
 @router.post("/minimal-flip")
 def minimal_flip(req: MinimalFlipRequest):
-    arch = _arch_key(req.architecture)
+    arch = arch_key(req.architecture)
     model = _bundle(arch, use_untrained=False).model
-    x = tf.convert_to_tensor(_prepare_input(req.pixels, arch, req.dataset))
+    x = tf.convert_to_tensor(prepare_input(req.pixels, arch, req.dataset))
 
     with tf.GradientTape() as tape:
         tape.watch(x)
-        probs = _binary_probs(tf.cast(model(x, training=False), tf.float32), req.dataset)
+        probs = binary_probs(tf.cast(model(x, training=False), tf.float32), req.dataset)
         orig_label = int(tf.argmax(probs[0]).numpy())
         loss = -tf.math.log(probs[0, orig_label] + 1e-7)
     grad = tape.gradient(loss, x)
@@ -776,7 +758,7 @@ def minimal_flip(req: MinimalFlipRequest):
     for _ in range(20):
         mid = (lo + hi) / 2.0
         x_adv = tf.clip_by_value(x + mid * sign, 0.0, 1.0)
-        p_adv = _binary_probs(tf.cast(model(x_adv, training=False), tf.float32), req.dataset).numpy()[0]
+        p_adv = binary_probs(tf.cast(model(x_adv, training=False), tf.float32), req.dataset).numpy()[0]
         y_adv = int(np.argmax(p_adv))
         if y_adv != orig_label:
             best_eps = mid
@@ -798,7 +780,7 @@ def minimal_flip(req: MinimalFlipRequest):
         "modifiedPixels": modified.astype(np.float32).tolist(),
         "perturbationMap": diff.astype(np.float32).tolist(),
         "newPrediction": {
-            "label": _label_for_dataset(req.dataset, adv_label),
+            "label": label_for_dataset(req.dataset, adv_label),
             "confidence": float(np.max(adv_probs) * 100.0),
             "probs": adv_probs.tolist(),
         },
@@ -830,10 +812,10 @@ def comparison_run_all(req: ComparisonRequest):
         else:
             stages = ["input", "preprocessing", "lstm_t1", "lstm_tmid", "lstm_tfinal", "dense_output", "softmax", "output"]
 
-        x = _prepare_input(req.pixels, arch, req.dataset)
+        x = prepare_input(req.pixels, arch, req.dataset)
         start = time.perf_counter()
         out_map, layers = _collect_outputs(bundle.model, bundle.activation_model, x)
-        probs = _binary_probs(tf.cast(bundle.model(x, training=False), tf.float32), req.dataset).numpy()[0]
+        probs = binary_probs(tf.cast(bundle.model(x, training=False), tf.float32), req.dataset).numpy()[0]
         elapsed_ms = (time.perf_counter() - start) * 1000.0
 
         activations = {}
@@ -843,7 +825,7 @@ def comparison_run_all(req: ComparisonRequest):
             param_count = int(layer.count_params()) if layer is not None else 0
             act = {
                 "input": np.asarray(in_data, dtype=np.float32).reshape(-1).tolist(),
-                "output": _dataset_adjust(np.asarray(out_data, dtype=np.float32).reshape(-1), req.dataset).tolist(),
+                "output": dataset_adjust(np.asarray(out_data, dtype=np.float32).reshape(-1), req.dataset).tolist(),
                 "input_shape": list(np.asarray(in_data).shape),
                 "output_shape": list(np.asarray(out_data).shape),
                 "param_count": param_count,
@@ -856,17 +838,48 @@ def comparison_run_all(req: ComparisonRequest):
                     if len(w) > 1:
                         act["bias"] = np.asarray(w[1]).reshape(-1).astype(np.float32).tolist()
             if arch == "rnn" and sid.startswith("lstm"):
-                act["gates"] = _fake_gates(np.asarray(out_data).reshape(-1), idx)
+                act["gates"] = real_final_gates(arch, req.dataset, req.pixels)
             activations[sid] = act
 
         label = int(np.argmax(probs))
         results[arch_name] = {
             "activations": activations,
             "prediction": {
-                "label": _label_for_dataset(req.dataset, label),
+                "label": label_for_dataset(req.dataset, label),
                 "confidence": float(np.max(probs) * 100.0),
                 "probs": probs.tolist(),
             },
             "totalTimeMs": elapsed_ms,
         }
     return results
+
+
+@router.post("/trace")
+def run_execution_trace(req: TraceRequest):
+    """Run one real forward pass and return the full execution trace."""
+    arch = arch_key(req.architecture)
+    return build_execution_trace(arch, req.dataset, req.pixels, use_untrained=req.useUntrainedWeights)
+
+
+@router.post("/trace/detail")
+def trace_detail(req: TraceDetailRequest):
+    """On-demand deep inspection of one layer's internal computation."""
+    arch = arch_key(req.architecture)
+    selection = req.selection or TraceSelection()
+    if req.detail == "neuron":
+        return dense_neuron_detail(arch, req.dataset, req.pixels, req.layerId, selection.neuronIndex)
+    if req.detail == "conv_cell":
+        pos = selection.position or {"h": 0, "w": 0}
+        return conv_cell_detail(arch, req.dataset, req.pixels, req.layerId,
+                                selection.filterIndex, int(pos.get("h", 0)), int(pos.get("w", 0)))
+    if req.detail == "lstm_gates":
+        return lstm_gates_detail(arch, req.dataset, req.pixels, req.layerId, timestep=selection.timestep)
+    if req.detail == "lstm_gate_gradients":
+        return lstm_gate_gradients(arch, req.dataset, req.pixels, req.layerId, req.trueLabel)
+    raise HTTPException(status_code=400, detail=f"Unknown detail type '{req.detail}'")
+
+
+@router.get("/networks")
+def networks():
+    """Authoritative topology for every supported architecture."""
+    return {"networks": build_all_networks_metadata()}

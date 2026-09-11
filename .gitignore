@@ -50,3 +50,7 @@ verify_fixes.py
 # OS
 .DS_Store
 Thumbs.db
+
+# Debug / temp output
+*-out.txt
+*-errors.txt
